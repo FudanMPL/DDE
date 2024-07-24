@@ -1,12 +1,25 @@
 package DveAgent.common;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.security.cert.Certificate;
 import java.security.Signature;
 import java.security.cert.CertificateFactory;
 import java.util.Base64;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import javax.servlet.http.HttpServletRequest;
+
+import org.springframework.web.reactive.function.client.support.ClientResponseWrapper;
 
 public class Utlis {
+
+    public static R<?> parseRequestToR(HttpServletRequest request) throws IOException {
+        return new ObjectMapper().readValue(request.getInputStream(), R.class);
+    }
+
+    public static R<?> parseResponseToR(ClientResponseWrapper responseWrapper) throws IOException {
+        return new ObjectMapper().readValue(responseWrapper.toString(), R.class);
+    }
 
     /**
      * 将证书对象序列化为Base64字符串
@@ -53,5 +66,9 @@ public class Utlis {
         signature.update(data);
         byte[] signedBytes = Base64.getDecoder().decode(signedData);
         return signature.verify(signedBytes);
+    }
+
+    public static boolean verifyResponse(R<?> response, Certificate certificate) throws Exception {
+        return verifyData(R.serialize(response), response.getAuth(), certificate);
     }
 }

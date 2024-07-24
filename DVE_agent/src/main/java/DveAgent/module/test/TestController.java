@@ -26,8 +26,8 @@ public class TestController {
     }
 
     @PostMapping("/message")
-    public R<?> message() {
-        return R.success("123", "123");
+    public R<String> message(@RequestBody R<String> r) {
+        return R.success("123", r.getBody().getMessage());
     }
 
     @RequestMapping("webClient")
