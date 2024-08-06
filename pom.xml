@@ -16,6 +16,7 @@
         <module>DVE_base</module>
         <module>DVE_agent</module>
         <module>DVE_center</module>
+        <module>FabricUpload</module>
     </modules>
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
