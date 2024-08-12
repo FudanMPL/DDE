@@ -23,6 +23,21 @@ export const getDirectory = ({
     return res
   }
 
+
+  export const getDirectoryByApplication = ({
+    rootId,
+    agentId,
+    applicationId
+  }) => {
+    const params = new URLSearchParams();
+    params.append('rootId',rootId);
+    params.append('agentId',agentId);
+    params.append('applicationId',applicationId);
+    let res = request.post('/directory/fileFolder/getDirectoryByApplication', params.toString())
+    return res
+  }
+
+
   export const deleteFolder = ({
     agentId,
     folderId,

@@ -56,7 +56,7 @@
       </el-table-column>
       <el-table-column label="权限" prop="rule" width="180">
       </el-table-column>
-      <el-table-column fixed="right" label="操作" width="240" header-align="center">
+      <el-table-column fixed="right" label="操作" width="60" header-align="center">
         <template v-slot="scope">
           <el-button
             link

@@ -16,9 +16,9 @@
       </el-table-column>
       <el-table-column label="类型" prop="type" width="180">
       </el-table-column>
-      <el-table-column label="创建时间" prop="createDate" width="300">
+      <el-table-column label="创建时间" prop="createDate" width="300" :formatter="formatDate">
     </el-table-column>
-    <el-table-column label="更新" prop="lastUpdate" width="300">
+    <el-table-column label="更新时间" prop="lastUpdate" width="300" :formatter="formatDate">
     </el-table-column>
     <el-table-column fixed="right" label="操作" width="300" header-align="center">
         <template v-slot="scope">
@@ -55,7 +55,7 @@
       </el-table-column>
     </el-table>
     <el-form :model="createFolderBody" label-width="80px" style="max-width: 600px">
-      <el-form-item label="文件夹名">
+      <el-form-item label="文件夹Id">
         <el-input v-model="createFolderBody.name"></el-input>
       </el-form-item>
       <el-form-item>
@@ -64,10 +64,10 @@
     </el-form>
 
     <el-form :model="folderVisibleBody" label-width="80px" style="max-width: 600px">
-      <el-form-item label="文件夹名">
+      <el-form-item label="文件夹Id">
         <el-input v-model="folderVisibleBody.folderId"></el-input>
       </el-form-item>
-      <el-form-item label="组名">
+      <el-form-item label="组Id">
         <el-input v-model="folderVisibleBody.groupId"></el-input>
       </el-form-item>
       <el-form-item>
@@ -76,14 +76,13 @@
       </el-form-item>
     </el-form>
     <el-form :model="getDirectoryByGroupBody" label-width="80px" style="max-width: 600px">
-      <el-form-item label="组名">
+      <el-form-item label="组Id">
         <el-input v-model="getDirectoryByGroupBody.groupId"></el-input>
       </el-form-item>
       <el-form-item>
         <el-button @click="getDirectoryByGroupMethod">按照分组获取文件列表</el-button>
       </el-form-item>
     </el-form>
-    
     <el-table 
     :data="directoryByGroupData" 
     style="width: 100%" 
@@ -98,9 +97,36 @@
       </el-table-column>
       <el-table-column label="类型" prop="type" width="180">
       </el-table-column>
-      <el-table-column label="创建时间" prop="createDate" width="380">
+      <el-table-column label="创建时间" prop="createDate" width="380" :formatter="formatDate">
     </el-table-column>
-    <el-table-column label="更新" prop="lastUpdate" width="380">
+    <el-table-column label="更新时间" prop="lastUpdate" width="380" :formatter="formatDate">
+    </el-table-column>
+    </el-table>
+    <el-form :model="getDirectoryByApplicationBody" label-width="80px" style="max-width: 600px">
+      <el-form-item label="用户Id">
+        <el-input v-model="getDirectoryByApplicationBody.applicationId"></el-input>
+      </el-form-item>
+      <el-form-item>
+        <el-button @click="getDirectoryByApplicationMethod">按照用户获取文件列表</el-button>
+      </el-form-item>
+    </el-form>
+    <el-table 
+    :data="directoryByApplicationData" 
+    style="width: 100%" 
+    v-loading="taskTableLoading"
+    @row-click="showFileInfo"
+    @row-dblclick="nextFileGroup"
+    >
+      <el-table-column label="Uid" prop="uid" width="80"> </el-table-column>
+      <el-table-column label="所属代理" prop="agentId" width="80">
+      </el-table-column
+      ><el-table-column label="名称" prop="name" width="180">
+      </el-table-column>
+      <el-table-column label="类型" prop="type" width="180">
+      </el-table-column>
+      <el-table-column label="创建时间" prop="createDate" width="380" :formatter="formatDate">
+    </el-table-column>
+    <el-table-column label="更新时间" prop="lastUpdate" width="380" :formatter="formatDate">
     </el-table-column>
     </el-table>
     </div>
@@ -192,9 +218,9 @@
       :action="uploadUrl"
       @change="handleChange"
     >
-     <el-button type="primary">select file</el-button>
+     <el-button type="primary">从本地选择文件</el-button>
    </el-upload>
-    <el-button @click="submitUpload">Submit</el-button>
+    <el-button @click="submitUpload">上传到当前文件夹</el-button>
 
     <!-- <el-upload
     ref="upload"
@@ -221,7 +247,7 @@
 <script lang="ts" setup>
 import { ref,computed } from 'vue';
 import { getDirectory,getDirectoryByGroup,deleteFolder,deleteFile,createFolder,uploadFile,
-    setFolderName,setFolderInvisible,setFolderVisible,getFileInfo,setFileRule,deleteFileRule} from '../../api/folderController.js';
+    setFolderName,setFolderInvisible,setFolderVisible,getFileInfo,setFileRule,deleteFileRule,getDirectoryByApplication} from '../../api/folderController.js';
 import { getGroup,getRuleByGroup } from '../../api/testDve.js';
 import { genFileId } from 'element-plus'
 import type { UploadInstance, UploadProps, UploadRawFile } from 'element-plus'
@@ -235,6 +261,7 @@ const fileInfoVisible = ref(false);
 const fileRenameVisible = ref(false);
 const fileRuleListData = ref([]);
 const userGroupData = ref([]);
+const directoryByApplicationData = ref([]);
 
 const uploadUrl = computed(() => {
   const url =  `http://10.176.37.50:8080/directory/fileFolder/uploadFile?agentId=${uploadFileBody.value.agentId}&folderId=${uploadFileBody.value.folderId}`;
@@ -242,6 +269,18 @@ const uploadUrl = computed(() => {
   return url;
 });
 
+
+const formatDate = (row, column, cellValue) => {
+  if (!cellValue) return '';
+  const date = new Date(cellValue);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
 
 const handleChange = () => {
   console.log('upload:', upload.value?.uploadFiles);
@@ -381,6 +420,8 @@ const submitUpload= async() => {
     uploadFileBody.value.agentId = '5';
     uploadFileBody.value.folderId = currentParentId.value;
  upload.value!.submit();
+ await nextTick();
+  getDirectoryMethod();
 }
 
 const setFolderInvisibleMethod = async() => {
@@ -465,6 +506,12 @@ const getDirectoryByGroupBody = ref({
   groupId: '',
 })
 
+const getDirectoryByApplicationBody = ref({
+  rootId: '1',
+  agentId: '5',
+  applicationId: '',
+})
+
 const folderVisibleBody = ref({
   agentId: '5',
   groupId: '',
@@ -478,7 +525,7 @@ const getDirectoryMethod = async() => {
     const res = await getDirectory(getDirectoryBody.value);
     const res1 = res.data.data.children;
     directoryData.value = res1;
-    console.log('directoryData:', directoryData.value);
+    currentDirectoryData.value = '1';
   } catch (error) {
     console.error('Failed to get group list:', error);
   }
@@ -489,6 +536,16 @@ const getDirectoryByGroupMethod = async() => {
     const res = await getDirectoryByGroup(getDirectoryByGroupBody.value);
     const res1 = res.data.data.children;
     directoryByGroupData.value = res1;
+  } catch (error) {
+    console.error('Failed to get group list:', error);
+  }
+}
+
+const getDirectoryByApplicationMethod = async() => {
+  try {
+    const res = await getDirectoryByApplication(getDirectoryByApplicationBody.value);
+    const res1 = res.data.data.children;
+    directoryByApplicationData.value = res1;
   } catch (error) {
     console.error('Failed to get group list:', error);
   }

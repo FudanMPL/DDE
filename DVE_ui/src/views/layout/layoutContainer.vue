@@ -92,7 +92,7 @@ const handleCommand = (key) => {
         <el-sub-menu index="/dve">
           <template #title>
             <el-icon><UserFilled /></el-icon>
-            <span class="centered-text">DAVE</span>
+            <span class="centered-text">DAVEX</span>
           </template>
           <el-menu-item index="/dve/testTrans">
             <el-icon><User /></el-icon>
@@ -121,8 +121,8 @@ const handleCommand = (key) => {
     </el-aside>
     <el-container>
       <el-header>
-        <div class="header-text" >DAVE_agent操作界面</div>
-        <el-dropdown placement="bottom-end" @command = "handleCommand">
+        <div class="header-text" >DAVEX_agent操作界面</div>
+        <!-- <el-dropdown placement="bottom-end" @command = "handleCommand">
           <span class="el-dropdown__box">
             <el-avatar :src="avatar" />
             <el-icon><CaretBottom /></el-icon>
@@ -134,12 +134,12 @@ const handleCommand = (key) => {
               >
             </el-dropdown-menu>
           </template>
-        </el-dropdown>
+        </el-dropdown> -->
       </el-header>
       <el-main>
         <router-view></router-view>
       </el-main>
-      <el-footer>DAVE</el-footer>
+      <el-footer>DAVEX</el-footer>
     </el-container>
   </el-container>
 </template>

@@ -116,7 +116,7 @@ watch(isRegister, () => {
 <template>
   <el-row class="login-page">
     <el-col :span="12" class="bg">
-      <span class="additional-text">DAVE</span>
+      <span class="additional-text">DAVEX</span>
       <span class="title"></span>
     </el-col>
     <el-col :span="6" :offset="3" class="form">
