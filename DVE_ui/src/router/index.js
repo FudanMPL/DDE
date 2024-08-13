@@ -48,6 +48,26 @@ const router = createRouter({
         {
           path: 'dve/folderController',
           component: () => import('@/views/dve/folderController.vue')
+        },
+        {
+          path: 'datashare/comPare',
+          component: () => import('@/views/datashare/comPare.vue')
+        },
+        {
+          path: 'datashare/fileTrans',
+          component: () => import('@/views/datashare/fileTrans.vue')
+        },
+        {
+          path: 'datashare/mPc',
+          component: () => import('@/views/datashare/mPc.vue')
+        },
+        {
+          path: 'datashare/pSi',
+          component: () => import('@/views/datashare/pSi.vue')
+        },
+        {
+          path: 'datashare/quEry',
+          component: () => import('@/views/datashare/quEry.vue')
         }
       ]
     } //布局

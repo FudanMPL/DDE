@@ -92,7 +92,7 @@ const handleCommand = (key) => {
         <el-sub-menu index="/dve">
           <template #title>
             <el-icon><UserFilled /></el-icon>
-            <span class="centered-text">DAVEX</span>
+            <span class="centered-text">用户与文件管理</span>
           </template>
           <el-menu-item index="/dve/testTrans">
             <el-icon><User /></el-icon>
@@ -103,20 +103,32 @@ const handleCommand = (key) => {
             <span class="centered-text">文件管理</span>
           </el-menu-item>
         </el-sub-menu>
-        <!-- <el-sub-menu index="/user">
+        <el-sub-menu index="/datashare">
           <template #title>
             <el-icon><UserFilled /></el-icon>
-            <span>个人中心</span>
+            <span class="centered-text">数据共享</span>
           </template>
-          <el-menu-item index="/user/userData">
+          <el-menu-item index="/datashare/fileTrans">
             <el-icon><User /></el-icon>
-            <span>基本资料</span>
+            <span class="centered-text">文件传输</span>
           </el-menu-item>
-          <el-menu-item index="/user/userPassword">
+          <el-menu-item index="/datashare/pSi">
             <el-icon><EditPen /></el-icon>
-            <span>重置密码</span>
+            <span class="centered-text">PSI</span>
           </el-menu-item>
-        </el-sub-menu> -->
+          <el-menu-item index="/datashare/mPc">
+            <el-icon><EditPen /></el-icon>
+            <span class="centered-text">MPC</span>
+          </el-menu-item>
+          <el-menu-item index="/datashare/quEry">
+            <el-icon><EditPen /></el-icon>
+            <span class="centered-text">QUERY</span>
+          </el-menu-item>
+          <el-menu-item index="/datashare/comPare">
+            <el-icon><EditPen /></el-icon>
+            <span class="centered-text">比对</span>
+          </el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
     <el-container>
