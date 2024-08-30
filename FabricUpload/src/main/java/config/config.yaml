@@ -1,0 +1,8 @@
+runmode: debug # 开发模式, debug, release, test
+
+basic_path: fabric
+connection_path: ./src/main/java/config/fabric_connection.json
+channel_id: fsims-channel
+wallet_user_msp_path: ./fabric_organizations/peerOrganizations/org1/users/User1@org1/msp
+certificatePath: ./src/main/java/config/fabric_organizations/peerOrganizations/org1/users/User1@org1/msp/signcerts/cert.pem
+privateKeyPath: ./src/main/java/config/fabric_organizations/peerOrganizations/org1/users/User1@org1/msp/keystore/sk
