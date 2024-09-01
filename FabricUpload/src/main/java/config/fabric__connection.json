@@ -15,7 +15,7 @@
   "organizations": {
     "Org1": {
       "mspid": "Org1MSP",
-      "cryptoPath": "src/main/config/fabric_organizations/peerOrganizations/org1/users/{userName}@org1/msp",
+      "cryptoPath": "./FabricUpload/src/main/java/config/fabric_organizations/peerOrganizations/org1/users/{userName}@org1/msp",
       "peers": [
         "peer0.org1"
       ],
@@ -25,14 +25,14 @@
       "users": {
         "Admin": {
           "cert": {
-            "path": "src/main/config/fabric_organizations/peerOrganizations/org1/users/Admin@org1/msp/signcerts/cert.pem"
+            "path": "./FabricUpload/src/main/java/config/fabric_organizations/peerOrganizations/org1/users/Admin@org1/msp/signcerts/cert.pem"
           }
         }
       }
     },
     "Org2": {
       "mspid": "Org2MSP",
-      "cryptoPath": "src/main/config/fabric_organizations/peerOrganizations/org2/users/{userName}@org2/msp",
+      "cryptoPath": "./FabricUpload/src/main/java/config/fabric_organizations/peerOrganizations/org2/users/{userName}@org2/msp",
       "peers": [
         "peer0.org2"
       ],
@@ -42,7 +42,7 @@
       "users": {
         "Admin": {
           "cert": {
-            "path": "src/main/config/fabric_organizations/peerOrganizations/org2/users/Admin@org2/msp/signcerts/cert.pem"
+            "path": "./FabricUpload/src/main/java/config/fabric_organizations/peerOrganizations/org2/users/Admin@org2/msp/signcerts/cert.pem"
           }
         }
       }
@@ -58,10 +58,10 @@
         "path": "./FabricUpload/src/main/java/config/fabric_organizations/ordererOrganizations/orderer/orderer/orderers/orderer1/tls/ca.crt"
       },
       "adminPrivateKeyPEM": {
-        "path": "C:/Users/Administrator/AggregateGraph/pythonProject/DVE/FabricUpload/src/main/java/config/fabric_organizations/ordererOrganizations/orderer/users/Admin@orderer/msp/keystore/priv_sk"
+        "path": "./FabricUpload/src/main/java/config/fabric_organizations/ordererOrganizations/orderer/users/Admin@orderer/msp/keystore/priv_sk"
       },
       "signedCertPEM": {
-        "path": "C:/Users/Administrator/AggregateGraph/pythonProject/DVE/FabricUpload/src/main/java/config/fabric_organizations/ordererOrganizations/orderer/users/Admin@orderer/msp/signcerts/cert.pem"
+        "path": "./FabricUpload/src/main/java/config/fabric_organizations/ordererOrganizations/orderer/users/Admin@orderer/msp/signcerts/cert.pem"
       }
     }
   },
@@ -69,7 +69,7 @@
     "peer0.org1": {
       "url": "grpcs://peer0.org1:7051",
       "tlsCACerts": {
-        "path": "C:/Users/Administrator/AggregateGraph/pythonProject/DVE/FabricUpload/src/main/java/config/fabric_organizations/peerOrganizations/org1/peers/peer0.org1/tls/ca.crt"
+        "path": "./FabricUpload/src/main/java/config/fabric_organizations/peerOrganizations/org1/peers/peer0.org1/tls/ca.crt"
       },
       "grpcOptions": {
         "ssl-target-name-override": "peer0.org1"
@@ -78,7 +78,7 @@
     "peer0.org2": {
       "url": "grpcs://peer0.org2:7051",
       "tlsCACerts": {
-        "path": "C:/Users/Administrator/AggregateGraph/pythonProject/DVE/FabricUpload/src/main/java/config/fabric_organizations/peerOrganizations/org2/peers/peer0.org2/tls/ca.crt"
+        "path": "./FabricUpload/src/main/java/config/fabric_organizations/peerOrganizations/org2/peers/peer0.org2/tls/ca.crt"
       },
       "grpcOptions": {
         "ssl-target-name-override": "peer0.org2"
@@ -90,7 +90,7 @@
       "url": "grpcs://caOrg1:7053",
       "caName": "ca-org1",
       "tlsCACerts": {
-        "path": "src/main/java/config/fabric_organizations/peerOrganizations/org1/msp/cacerts/localhost-7053.pem"
+        "path": "./FabricUpload/src/main/java/config/fabric_organizations/peerOrganizations/org1/msp/cacerts/localhost-7053.pem"
       },
       "httpOptions": {
         "verify": false
@@ -100,7 +100,7 @@
       "url": "grpcs://caOrg2:8053",
       "caName": "ca-org2",
       "tlsCACerts": {
-        "path": "src/main/java/config/fabric_organizations/peerOrganizations/org2/msp/cacerts/localhost-8053.pem"
+        "path": "./FabricUpload/src/main/java/config/fabric_organizations/peerOrganizations/org2/msp/cacerts/localhost-8053.pem"
       }
     }
   },

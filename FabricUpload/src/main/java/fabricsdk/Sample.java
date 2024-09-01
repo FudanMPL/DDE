@@ -51,7 +51,7 @@ public class Sample {
             System.out.println("ID："+new String(queryById, StandardCharsets.UTF_8));
 
 
-            byte[] queryAllAssets = contract.createTransaction("StoreRequestOperation").setEndorsingPeers(network.getChannel().getPeers(EnumSet.of(Peer.PeerRole.ENDORSING_PEER))).submit("6666", "grpcsd");
+            byte[] queryAllAssets = contract.createTransaction("StoreRequestOperation").setEndorsingPeers(network.getChannel().getPeers(EnumSet.of(Peer.PeerRole.ENDORSING_PEER))).submit("7777", "grpcsd");
             System.out.println("所有资产："+new String(queryAllAssets, StandardCharsets.UTF_8));
     }
 }
