@@ -9,9 +9,7 @@ import org.hyperledger.fabric.gateway.*;
 import org.hyperledger.fabric.sdk.Peer;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.EnumSet;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeoutException;
 
@@ -26,15 +24,18 @@ public class DavexController {
 
     public Map<String, Object> queryDataByKey(String key) throws GatewayException {
         Map<String, Object> result = Maps.newConcurrentMap();
-        byte[] queryData = contract.evaluateTransaction("QueryData", key);
+        try {
+            byte[] queryData = contract.evaluateTransaction("QueryData", key);
 
-        if (queryData != null) {
-            result.put("payload", StringUtils.newStringUtf8(queryData));
-            result.put("status", "ok");
-            return result;
+            if (queryData != null) {
+                result.put("payload", StringUtils.newStringUtf8(queryData));
+                result.put("status", "ok");
+                return result;
+            }
+        }catch (ContractException e){
+            result.put("status", "error");
+            result.put("payload", "keyNotExist");
         }
-        result.put("status", "error");
-        result.put("payload", "keyNotExist");
         return result;
     }
 
@@ -51,21 +52,18 @@ public class DavexController {
         Network network = gateway.getNetwork(CHANNEL_NAME);
         Map<String, Object> result = Maps.newConcurrentMap();
         try {
-            // 先查询链上是否存在key
+            // 先查询链上是否存在key, 若存在
             String existingData = StringUtils.newStringUtf8(contract.evaluateTransaction("QueryData", key));
             if(existingData != null && ! existingData.isEmpty()){
                 result.put("status", "error");
                 result.put("payload", existingData);
-            }else {
-                byte[] tx = contract.createTransaction("StoreRequestOperation")
-                        .setEndorsingPeers(network.getChannel().getPeers(EnumSet.of(Peer.PeerRole.ENDORSING_PEER)))
-                        .submit(key, data);
-                result.put("payload", StringUtils.newStringUtf8(contract.evaluateTransaction("QueryData", key)));
-                result.put("status", "ok");
             }
         } catch (ContractException e) {
-            result.put("status", "error");
-            result.put("payload", "exception");
+            byte[] tx = contract.createTransaction("StoreRequestOperation")
+                    .setEndorsingPeers(network.getChannel().getPeers(EnumSet.of(Peer.PeerRole.ENDORSING_PEER)))
+                    .submit(key, data);
+            result.put("payload", StringUtils.newStringUtf8(contract.evaluateTransaction("QueryData", key)));
+            result.put("status", "ok");
         }
         return result;
     }
