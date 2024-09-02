@@ -34,7 +34,7 @@ public class DavexController {
             return result;
         }
         result.put("status", "error");
-        result.put("payload", "");
+        result.put("payload", "keyNotExist");
         return result;
     }
 
@@ -50,22 +50,54 @@ public class DavexController {
     public Map<String, Object> addData(String key, String data) throws GatewayException, TimeoutException, InterruptedException {
         Network network = gateway.getNetwork(CHANNEL_NAME);
         Map<String, Object> result = Maps.newConcurrentMap();
-        byte[] tx = contract.createTransaction("StoreRequestOperation")
-                .setEndorsingPeers(network.getChannel().getPeers(EnumSet.of(Peer.PeerRole.ENDORSING_PEER)))
-                .submit(key, data);
-        result.put("payload", StringUtils.newStringUtf8(contract.evaluateTransaction("QueryData", key)));
-        result.put("status", "ok");
+        try {
+            // 先查询链上是否存在key
+            String existingData = StringUtils.newStringUtf8(contract.evaluateTransaction("QueryData", key));
+            if(existingData != null && ! existingData.isEmpty()){
+                result.put("status", "error");
+                result.put("payload", existingData);
+            }else {
+                byte[] tx = contract.createTransaction("StoreRequestOperation")
+                        .setEndorsingPeers(network.getChannel().getPeers(EnumSet.of(Peer.PeerRole.ENDORSING_PEER)))
+                        .submit(key, data);
+                result.put("payload", StringUtils.newStringUtf8(contract.evaluateTransaction("QueryData", key)));
+                result.put("status", "ok");
+            }
+        } catch (ContractException e) {
+            result.put("status", "error");
+            result.put("payload", "exception");
+        }
         return result;
     }
 
     public Map<String, Object> updateData(String key, String data) throws GatewayException, InterruptedException, TimeoutException {
         Network network = gateway.getNetwork(CHANNEL_NAME);
-        byte[] ans = contract.createTransaction("UpdateData")
-                .setEndorsingPeers(network.getChannel().getPeers(EnumSet.of(Peer.PeerRole.ENDORSING_PEER)))
-                .submit(key, data);
         Map<String, Object> result = Maps.newConcurrentMap();
-        result.put("status", "ok");
-        result.put("payload", StringUtils.newStringUtf8(contract.evaluateTransaction("QueryData", key)));
+
+        try {
+            // 查询链上是否存在该key
+            String existingData = StringUtils.newStringUtf8(contract.evaluateTransaction("QueryData", key));
+
+            if (existingData == null || existingData.isEmpty()) {
+                // 如果key不存在，返回错误状态
+                result.put("status", "error");
+                result.put("payload", "keyNotExist");
+            } else {
+                // 如果key存在，执行更新操作
+                byte[] ans = contract.createTransaction("UpdateData")
+                        .setEndorsingPeers(network.getChannel().getPeers(EnumSet.of(Peer.PeerRole.ENDORSING_PEER)))
+                        .submit(key, data);
+
+                // 更新成功后查询最新数据并返回成功状态
+                result.put("status", "ok");
+                result.put("payload", StringUtils.newStringUtf8(contract.evaluateTransaction("QueryData", key)));
+            }
+        } catch (ContractException e) {
+            // 处理异常并标记为错误
+            result.put("status", "error");
+            result.put("payload", "keyNotExist");
+        }
+
         return result;
     }
 }
