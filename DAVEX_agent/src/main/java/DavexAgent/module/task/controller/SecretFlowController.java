@@ -18,6 +18,12 @@ import java.io.InputStreamReader;
 @RequestMapping("/SecretFlowTask")
 public class SecretFlowController {
 
+
+    @Autowired
+    private SecretFlowService secretFlowService;
+
+    @Autowired
+    private My my;
     @GetMapping("/execute-script")
     public String executeScript() {
         try {
@@ -59,42 +65,21 @@ public class SecretFlowController {
     }
 
     @GetMapping("/activate-mainRay")
-    public String activateMainRay() {
-        try {
-            // 定义要执行的命令
-            String command = "source sfenv/bin/activate && rray start --address=\"10.176.34.173:9999\" --resources='{\"bob\": 16}' --disable-usage-stats";
-            ProcessBuilder processBuilder = new ProcessBuilder();
-            processBuilder.command("bash", "-c", command);
-            processBuilder.directory(new java.io.File("/home/zw/SFFL"));
+    public String activateMainRay(
+            @RequestParam String ip,
+            @RequestParam String port,
+            @RequestParam String name
+            // 参数化端口
+    ) {
+        // 构造命令字符串
+        String command = String.format("source sfenv/bin/activate && ray start --head --node-ip-address=\"%s\" --port=\"%s\" --resources='{\"%s\": 16}' --include-dashboard=False --disable-usage-stats", ip, port,name);
 
-            // 启动进程并获取输出
-            Process process = processBuilder.start();
-
-            // 捕获标准输出
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            StringBuilder output = new StringBuilder();
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
-            }
-
-            // 捕获错误输出
-            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            StringBuilder errorOutput = new StringBuilder();
-            while ((line = errorReader.readLine()) != null) {
-                errorOutput.append(line).append("\n");
-            }
-
-            int exitCode = process.waitFor();
-            if (exitCode == 0) {
-                return "Script executed successfully: \n" + output.toString();
-            } else {
-                return "Script execution failed with exit code: " + exitCode + "\nError Output: " + errorOutput.toString();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "Error occurred: " + e.getMessage();
-        }
+        // 调用 service 中的方法执行命令
+        return secretFlowService.executeCommand(command);
+    }
+    @GetMapping("/stop-ray")
+    public String stopMainRay() {
+        // 调用 service 中的方法执行命令
+        return secretFlowService.executeCommand("source sfenv/bin/activate && ray stop");
     }
 }

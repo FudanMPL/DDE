@@ -13,8 +13,7 @@ import java.io.InputStreamReader;
 @Service
 public class SecretFlowService {
 
-    @Autowired
-    private SecretFlowService secretFlowService;
+
 
     @Autowired
     private My my;
@@ -56,18 +55,6 @@ public class SecretFlowService {
         }
     }
 
-    @GetMapping("/activate-mainRay")
-    public String activateMainRay(
-            @RequestParam String ip,
-            @RequestParam String port,
-            @RequestParam String name
-            // 参数化端口
-    ) {
-        // 构造命令字符串
-        String command = String.format("source sfenv/bin/activate && ray start --head --node-ip-address=\"%s\" --port=\"%s\" --resources='{\"%s\": 16}' --include-dashboard=False --disable-usage-stats", ip, port,name);
 
-        // 调用 service 中的方法执行命令
-        return secretFlowService.executeCommand(command);
-    }
 }
 
