@@ -89,6 +89,10 @@ const handleCommand = (key) => {
             <span class="centered-text">编写MPC代码</span>
           </el-menu-item>
         </el-sub-menu> -->
+        <el-menu-item index="/user/notification">
+          <el-icon><Message /></el-icon>
+          <span class="centered-text">消息</span>
+        </el-menu-item>
         <el-sub-menu index="/dve">
           <template #title>
             <el-icon><UserFilled /></el-icon>
@@ -106,27 +110,31 @@ const handleCommand = (key) => {
         <el-sub-menu index="/datashare">
           <template #title>
             <el-icon><UserFilled /></el-icon>
-            <span class="centered-text">数据共享</span>
+            <span class="centered-text">数据流通</span>
           </template>
           <el-menu-item index="/datashare/fileTrans">
             <el-icon><EditPen /></el-icon>
             <span class="centered-text">文件传输</span>
           </el-menu-item>
-          <el-menu-item index="/datashare/pSi">
-            <el-icon><EditPen /></el-icon>
-            <span class="centered-text">PSI</span>
-          </el-menu-item>
-          <el-menu-item index="/datashare/mPc">
-            <el-icon><EditPen /></el-icon>
-            <span class="centered-text">MPC</span>
-          </el-menu-item>
           <el-menu-item index="/datashare/quEry">
             <el-icon><EditPen /></el-icon>
-            <span class="centered-text">QUERY</span>
+            <span class="centered-text">查询</span>
           </el-menu-item>
           <el-menu-item index="/datashare/comPare">
             <el-icon><EditPen /></el-icon>
             <span class="centered-text">比对</span>
+          </el-menu-item>
+          <el-menu-item index="/datashare/pSi">
+            <el-icon><EditPen /></el-icon>
+            <span class="centered-text">隐私集合求交</span>
+          </el-menu-item>
+          <el-menu-item index="/datashare/mPc">
+            <el-icon><EditPen /></el-icon>
+            <span class="centered-text">安全多方计算</span>
+          </el-menu-item>
+          <el-menu-item index="/datashare/secureInfer">
+            <el-icon><EditPen /></el-icon>
+            <span class="centered-text">安全推理</span>
           </el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="/result">
@@ -138,24 +146,28 @@ const handleCommand = (key) => {
             <el-icon><EditPen /></el-icon>
             <span class="centered-text">文件传输</span>
           </el-menu-item>
-          <el-menu-item index="/result/mPc">
-            <el-icon><EditPen /></el-icon>
-            <span class="centered-text">MPC/PSI</span>
-          </el-menu-item>
           <el-menu-item index="/result/quEry">
             <el-icon><EditPen /></el-icon>
-            <span class="centered-text">QUERY</span>
+            <span class="centered-text">查询</span>
           </el-menu-item>
           <el-menu-item index="/result/comPare">
             <el-icon><EditPen /></el-icon>
             <span class="centered-text">比对</span>
+          </el-menu-item>
+          <el-menu-item index="/result/mPc">
+            <el-icon><EditPen /></el-icon>
+            <span class="centered-text">安全多方计算</span>
+          </el-menu-item>
+          <el-menu-item index="/result/fL">
+            <el-icon><EditPen /></el-icon>
+            <span class="centered-text">联邦学习</span>
           </el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
     <el-container>
       <el-header>
-        <div class="header-text">DAVEX_center操作界面</div>
+        <div class="header-text">DAVEX_Center操作界面</div>
         <!-- <el-dropdown placement="bottom-end" @command = "handleCommand">
           <span class="el-dropdown__box">
             <el-avatar :src="avatar" />

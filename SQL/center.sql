@@ -78,12 +78,12 @@ CREATE TABLE `comparison_output` (
     `hash` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
     `path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
     `upload_date` timestamp NULL DEFAULT NULL,
-    `application_id` int DEFAULT NULL,
+    `application_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
     `expired_time` timestamp NULL DEFAULT NULL,
     `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
-    `agent_id` int DEFAULT NULL,
-    `file_id` int DEFAULT NULL,
-    `folder_id` int DEFAULT NULL,
+    `agent_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+    `file_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+    `folder_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
     `dest_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
     PRIMARY KEY (`uid`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 83 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
@@ -120,7 +120,7 @@ CREATE TABLE `file` (
     `expired_time` timestamp NULL DEFAULT NULL,
     `hash` varchar(255) DEFAULT NULL,
     `example` varchar(255) DEFAULT NULL,
-    `type` enum('文件流', '数据库') DEFAULT NULL,
+    `type` varchar(255) DEFAULT NULL,
     PRIMARY KEY (`uid`) USING BTREE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 
@@ -244,6 +244,7 @@ CREATE TABLE `output` (
     `file_id` varchar(255) DEFAULT NULL,
     `agent_id` varchar(255) DEFAULT NULL,
     `application_id` varchar(255) DEFAULT NULL,
+    `attribute` JSON DEFAULT NULL,
     PRIMARY KEY (`uid`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 48 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
 
@@ -385,4 +386,58 @@ CREATE TABLE `folder_visibility` (
     PRIMARY KEY (`uid`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 23 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 
+-- ----------------------------
+-- Table structure for fl_output
+-- ----------------------------
+DROP TABLE IF EXISTS `fl_output`;
+
+CREATE TABLE `fl_output` (
+    `uid` bigint NOT NULL AUTO_INCREMENT,
+    `hash` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+    `path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+    `upload_date` timestamp NULL DEFAULT NULL,
+    `application_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+    `expired_time` timestamp NULL DEFAULT NULL,
+    `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+    PRIMARY KEY (`uid`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 83 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
+
+DROP TABLE IF EXISTS `notification`;
+
+CREATE TABLE `notification` (
+    `uid` BIGINT NOT NULL AUTO_INCREMENT,
+    `appID` varchar(255) NOT NULL,
+    `title` varchar(255) NOT NULL,
+    `content` TEXT NOT NULL,
+    `time` TIMESTAMP NOT NULL,
+    `hasRead` BOOLEAN NOT NULL,
+    PRIMARY KEY (`uid`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ----------------------------
+-- Table structure for keycloak
+-- ----------------------------
+DROP TABLE IF EXISTS `keycloak`;
+
+CREATE TABLE `keycloak` (
+                            `authentication_id` varchar(255) NOT NULL,
+                            `server_url` varchar(255) DEFAULT NULL,
+                            `realm` varchar(255) DEFAULT NULL,
+                            `client_id` varchar(255) DEFAULT NULL,
+                            `client_secret` varchar(255) DEFAULT NULL,
+                            PRIMARY KEY (`authentication_id`)
+) ENGINE = InnoDB AUTO_INCREMENT = 48 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
+
+-- ----------------------------
+-- Table structure for keycloak_credentials
+-- ----------------------------
+DROP TABLE IF EXISTS `keycloak_credentials`;
+
+CREATE TABLE `keycloak` (
+                            `target_id` varchar(255) NOT NULL,
+                            `public_key` varchar(1000) DEFAULT NULL,
+                            `expired_time` timestamp NULL DEFAULT NULL,
+                            PRIMARY KEY (`target_id`)
+) ENGINE = InnoDB AUTO_INCREMENT = 48 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;

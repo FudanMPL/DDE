@@ -59,7 +59,7 @@ const router = createRouter({
         },
         {
           path: 'datashare/mPc',
-          component: () => import('@/views/datashare/mPc.vue'),
+          component: () => import('@/views/datashare/newMpc.vue'),
         },
         {
           path: 'datashare/pSi',
@@ -68,6 +68,10 @@ const router = createRouter({
         {
           path: 'datashare/quEry',
           component: () => import('@/views/datashare/quEry.vue'),
+        },
+        {
+          path: 'datashare/secureInfer',
+          component: () => import('@/views/datashare/secureInfer.vue'),
         },
         {
           path: 'result/fileTrans',
@@ -84,6 +88,14 @@ const router = createRouter({
         {
           path: 'result/comPare',
           component: () => import('@/views/result/comPare.vue'),
+        },
+        {
+          path: 'result/fL',
+          component: () => import('@/views/result/fL.vue'),
+        },
+        {
+          path: 'user/notification',
+          component: () => import('@/views/user/notification.vue'),
         },
       ],
     }, //布局
