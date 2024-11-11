@@ -16,6 +16,7 @@
         <module>DAVEX_base</module>
         <module>DAVEX_agent</module>
         <module>DAVEX_center</module>
+        <module>DAVEX_chainmaker</module>
     </modules>
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
