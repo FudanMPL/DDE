@@ -1,29 +1,13 @@
 <template>
   <el-container>
-    <el-header style="height: 50px">
-      <div
-          style="
-          background-color: antiquewhite;
-          height: 40px;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        "
-      >
-        <p
-            style="
-            font-size: 20px;
-            color: black;
-            opacity: 100%;
-            text-align: center;
-          "
-        >
-          比对结果列表
-        </p>
+    <el-header class="custom-header">
+      <div class="icon-text">
+        <el-icon><Document /></el-icon>
+        <span>比对结果列表</span>
       </div>
     </el-header>
     <el-main>
-      <el-table :data="resultData" style="width: 100%">
+      <el-table :data="resultData">
         <el-table-column label="上传时间" width="300">
           <template #default="scope">
             <div style="display: flex; align-items: center">
@@ -55,15 +39,14 @@
         </el-table-column>
         <el-table-column label="操作">
           <template #default="scope">
-            <el-button size="small" @click="fetchComparisonMethod(scope.row.uid)">
-              获取文件
+            <el-button class="small-default-button" @click="readComparisonMethod(scope.row.uid)">
+              <el-icon><View /></el-icon> 预览文件
             </el-button>
-            <el-button
-                size="small"
-                type="danger"
-                @click="deleteComparisonMethod(scope.row.uid)"
-            >
-              删除文件
+            <el-button class="small-default-button" @click="fetchComparisonMethod(scope.row.uid)">
+              <el-icon><Download /></el-icon> 获取文件
+            </el-button>
+            <el-button class="small-delete-button" @click="deleteComparisonMethod(scope.row.uid)">
+              <el-icon><Delete /></el-icon> 删除文件
             </el-button>
           </template>
         </el-table-column>
@@ -75,7 +58,7 @@
     <span>{{ fetchSuccessMessage }}</span>
     <template #footer>
       <div class="dialog-footer">
-        <el-button type="primary" @click="fetchSuccessVisible = false">确定</el-button>
+        <el-button class="close-button" @click="fetchSuccessVisible = false">确定</el-button>
       </div>
     </template>
   </el-dialog>
@@ -83,7 +66,7 @@
     <span>{{ fetchFailedMessage }}</span>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="fetchFailedVisible = false">返回</el-button>
+        <el-button class="close-button" @click="fetchFailedVisible = false">返回</el-button>
       </div>
     </template>
   </el-dialog>
@@ -91,7 +74,7 @@
     <span>{{ deleteSuccessMessage }}</span>
     <template #footer>
       <div class="dialog-footer">
-        <el-button type="primary" @click="deleteSuccessVisible = false">确定</el-button>
+        <el-button class="close-button" @click="deleteSuccessVisible = false">确定</el-button>
       </div>
     </template>
   </el-dialog>
@@ -99,7 +82,23 @@
     <span>{{ deleteFailedMessage }}</span>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="deleteFailedVisible = false">返回</el-button>
+        <el-button class="close-button" @click="deleteFailedVisible = false">返回</el-button>
+      </div>
+    </template>
+  </el-dialog>
+  <el-dialog v-model="readSuccessVisible" title="文件预览结果" width="30%">
+    <span>{{ readSuccessMessage }}</span>
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button class="close-button" @click="readSuccessVisible = false">确定</el-button>
+      </div>
+    </template>
+  </el-dialog>
+  <el-dialog v-model="readFailedVisible" title="文件预览结果" width="30%">
+    <span>{{ readFailedMessage }}</span>
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button class="close-button" @click="readFailedVisible = false">返回</el-button>
       </div>
     </template>
   </el-dialog>
@@ -107,7 +106,8 @@
 
 <script lang="ts" setup>
 import {onMounted, ref} from "vue";
-import {getComparisonResult, fetchComparison, deleteComparison} from "../../api/comparison.js"
+import {getComparisonResult, fetchComparison, deleteComparison, readComparison} from "../../api/comparison.js";
+import {Delete, Document, Download} from "@element-plus/icons-vue";
 
 onMounted(() => {
   getComparisonResultMethod()
@@ -122,6 +122,10 @@ const deleteSuccessVisible = ref(false)
 const deleteFailedVisible = ref(false)
 const deleteSuccessMessage = ref('');
 const deleteFailedMessage = ref('');
+const readSuccessVisible = ref(false)
+const readFailedVisible = ref(false)
+const readSuccessMessage = ref('');
+const readFailedMessage = ref('');
 
 const applicationId = "DAVEX-C1-A1"
 const resultData = ref([])
@@ -133,6 +137,10 @@ const fetchComparisonBody = ref({
   applicationId: applicationId
 })
 const deleteComparisonBody = ref({
+  outputId: '',
+  applicationId: applicationId
+})
+const readComparisonBody = ref({
   outputId: '',
   applicationId: applicationId
 })
@@ -181,6 +189,24 @@ const deleteComparisonMethod = async (outputId) => {
   }
   catch (error) {
     console.error('Failed to delete file:', error)
+  }
+}
+
+const readComparisonMethod = async (outputId) => {
+  try {
+    readComparisonBody.value.outputId = outputId
+    const res = await readComparison(readComparisonBody.value)
+    if (res.data.code == 1) {
+      readSuccessMessage.value = res.data.message;
+      readSuccessVisible.value = true
+    }
+    else {
+      readFailedMessage.value = res.data.message;
+      readFailedVisible.value = true
+    }
+  }
+  catch (error) {
+    console.error('Failed to read file:', error)
   }
 }
 

@@ -95,10 +95,11 @@ DROP TABLE IF EXISTS `download_task`;
 
 CREATE TABLE `download_task` (
     `uid` int NOT NULL AUTO_INCREMENT,
-    `application_id` int DEFAULT NULL,
+    `application_id` varchar(255) DEFAULT NULL,
     `output_id` int DEFAULT NULL,
     `download_time` timestamp NULL DEFAULT NULL,
     `type` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+    `path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
     PRIMARY KEY (`uid`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 77 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
 
@@ -411,6 +412,9 @@ CREATE TABLE `notification` (
     `content` TEXT NOT NULL,
     `time` TIMESTAMP NOT NULL,
     `hasRead` BOOLEAN NOT NULL,
+    `taskID` varchar(255) NOT NULL,
+    `code` int NULL DEFAULT NULL,
+    `type` varchar(255) NOT NULL,
     PRIMARY KEY (`uid`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 
@@ -420,7 +424,6 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- Table structure for keycloak
 -- ----------------------------
 DROP TABLE IF EXISTS `keycloak`;
-
 CREATE TABLE `keycloak` (
                             `authentication_id` varchar(255) NOT NULL,
                             `server_url` varchar(255) DEFAULT NULL,
@@ -428,16 +431,28 @@ CREATE TABLE `keycloak` (
                             `client_id` varchar(255) DEFAULT NULL,
                             `client_secret` varchar(255) DEFAULT NULL,
                             PRIMARY KEY (`authentication_id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 48 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+SET FOREIGN_KEY_CHECKS = 1;
 -- ----------------------------
 -- Table structure for keycloak_credentials
 -- ----------------------------
 DROP TABLE IF EXISTS `keycloak_credentials`;
+CREATE TABLE `keycloak_credentials` (
+                                        `target_id` varchar(255) NOT NULL,
+                                        `public_key` varchar(2000) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+                                        `expired_time` timestamp NULL DEFAULT NULL,
+                                        PRIMARY KEY (`target_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE `keycloak` (
-                            `target_id` varchar(255) NOT NULL,
-                            `public_key` varchar(1000) DEFAULT NULL,
-                            `expired_time` timestamp NULL DEFAULT NULL,
-                            PRIMARY KEY (`target_id`)
-) ENGINE = InnoDB AUTO_INCREMENT = 48 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- ----------------------------
+-- Table structure for keys_storage
+-- ----------------------------
+DROP TABLE IF EXISTS `keys_storage`;
+CREATE TABLE keys_storage (
+                              id INT AUTO_INCREMENT PRIMARY KEY,
+                              owner_name VARCHAR(255) NOT NULL, -- 唯一ID
+                              public_key TEXT NOT NULL       -- 公钥
+);

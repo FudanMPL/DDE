@@ -1,11 +1,15 @@
 package DavexCenter.module.file.service;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import DavexBase.common.My;
+import DavexCenter.entity.ComparisonOutput;
+import DavexCenter.entity.FlOutput;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -36,8 +40,11 @@ public class QueryFileService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private My my;
+
     public Body<String> saveQuery(MultipartFile file, String hash, String applicationId,
-                                      String base, java.sql.Timestamp expiredTime) {
+                                      java.sql.Timestamp expiredTime) {
 
         // 校验sha256
         String fileHash = fileService.getSha256(file);
@@ -58,7 +65,8 @@ public class QueryFileService {
         }
         QueryOutput newQueryOutput = new QueryOutput();
         newQueryOutput.setHash(hash);
-        newQueryOutput.setPath(Paths.get(base).resolve("query").resolve(fileHash + "_appid_" + applicationId).toString());
+        newQueryOutput.setPath(Paths.get(my.getBase_path()).resolve("result").resolve("query")
+                .resolve(fileHash + "_appid_" + applicationId).toString());
         newQueryOutput.setUploadDate(Timestamp.valueOf(LocalDateTime.now()));
         newQueryOutput.setApplicationId(applicationId);
         newQueryOutput.setExpiredTime(expiredTime);
@@ -88,7 +96,7 @@ public class QueryFileService {
                 fileName));
     }
 
-    public Body<String> fetchQuery(Long outputId, String applicationId, String downloadPath) {
+    public Body<String> fetchQuery(Long outputId, String applicationId) {
 
         // 根据结果id查找结果表
         LambdaQueryWrapper<QueryOutput> queryWrapper = Wrappers.<QueryOutput>lambdaQuery()
@@ -106,29 +114,32 @@ public class QueryFileService {
         }
 
         // 添加下载任务记录到任务表
+        String filePath = queryQueryOutput.getPath();
+        String fileName = queryQueryOutput.getName();
+        Path downloadPath = Paths.get(my.getBase_path()).resolve("download").resolve("query");
         DownloadTask newDownloadTask = new DownloadTask();
         newDownloadTask.setApplicationId(applicationId);
         newDownloadTask.setOutputId(queryQueryOutput.getUid());
         newDownloadTask.setDownloadTime(Timestamp.valueOf(LocalDateTime.now()));
         newDownloadTask.setType("query");
+        newDownloadTask.setPath(downloadPath.resolve(fileName).toString());
         downloadTaskMapper.insert(newDownloadTask);
 
         // 直接通过路径访问文件
-        String filePath = queryQueryOutput.getPath();
-        String fileName = queryQueryOutput.getName();
         try {
-            fileService.copyFile(filePath, fileName, downloadPath);
+            fileService.copyFile(filePath, fileName, downloadPath.toString());
         } catch (Exception e) {
             e.printStackTrace();
             return Body.error(String.format("获取失败: 结果id %d，文件名: %s，错误信息: %s", outputId, fileName, e.getMessage()));
         }
-        return Body.success(String.format("获取成功，结果id: %d，文件名: %s", outputId, fileName));
+        return Body.success(String.format("获取成功，结果id: %d，文件名: %s，保存路径: %s", outputId, fileName, newDownloadTask.getPath()));
     }
 
     public Body<List<QueryOutput>> queryQuery(String applicationId) {
 
         LambdaQueryWrapper<QueryOutput> queryWrapper = Wrappers.<QueryOutput>lambdaQuery()
-                .eq(QueryOutput::getApplicationId, applicationId);
+                .eq(QueryOutput::getApplicationId, applicationId)
+                .orderByDesc(QueryOutput::getUploadDate);
         List<QueryOutput> outputs = queryOutputMapper.selectList(queryWrapper);
         Integer fileNum = outputs.size();
         return Body.success(outputs, String.format("查询成功，共查询到%d个文件", fileNum));
@@ -138,7 +149,8 @@ public class QueryFileService {
 
         LambdaQueryWrapper<QueryOutput> queryWrapper = Wrappers.<QueryOutput>lambdaQuery()
                 .eq(QueryOutput::getApplicationId, applicationId)
-                .in(QueryOutput::getUid, outputIds);
+                .in(QueryOutput::getUid, outputIds)
+                .orderByDesc(QueryOutput::getUploadDate);
 
         List<QueryOutput> outputs = queryOutputMapper.selectList(queryWrapper);
         Integer fileNum = outputs.size();
@@ -175,5 +187,16 @@ public class QueryFileService {
         }
 
         return Body.success(String.format("删除成功，结果id: %d，文件名: %s", outputId, fileName));
+    }
+
+    public Body<String> readQuery(String applicationId, Long outputId) throws IOException {
+        LambdaQueryWrapper<QueryOutput> queryWrapper = Wrappers.<QueryOutput>lambdaQuery()
+                .eq(QueryOutput::getApplicationId, applicationId)
+                .eq(QueryOutput::getUid, outputId);
+        QueryOutput queryOutput = queryOutputMapper.selectOne(queryWrapper);
+        String filePath = queryOutput.getPath();
+        String fileName = queryOutput.getName();
+
+        return fileService.readFileContent(filePath, fileName);
     }
 }

@@ -1,7 +1,7 @@
 <template>
   <el-container>
-    <span style="display: block; margin-bottom: 8px;">选择参与方数量</span>
-    <el-select v-model="partyNumber" placeholder="Select" style="width: 240px" @change="handleSelectPartyNumber">
+    <span style="display: block; margin-bottom: 10px;">参与方数量</span>
+    <el-select v-model="partyNumber" placeholder="Select" @change="handleSelectPartyNumber">
       <el-option
           v-for="item in partyNumbers"
           :key="item.value"
@@ -9,8 +9,8 @@
           :value="item.value"
       />
     </el-select>
-    <span style="display: block; margin-bottom: 8px;">选择代理</span>
-    <el-select v-model="agentId" placeholder="Select" style="width: 240px" @change="handleSelectAgent">
+    <span style="display: block; margin-bottom: 10px;">代理</span>
+    <el-select v-model="agentId" placeholder="选择代理" @change="handleSelectAgent">
       <el-option
           v-for="item in agents"
           :key="item.value"
@@ -18,40 +18,22 @@
           :value="item.value"
       />
     </el-select>
-    <el-header style="height: 50px">
-      <div
-          style="
-            background-color: antiquewhite;
-            height: 40px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          "
-      >
-        <p
-            style="
-              font-size: 20px;
-              color: black;
-              opacity: 100%;
-              text-align: center;
-            "
-        >
-          文件列表
-        </p>
+    <el-header class="custom-header">
+      <div class="icon-text">
+        <el-icon><Folder /></el-icon>
+        <span>文件列表</span>
       </div>
     </el-header>
     <el-main>
       <div>
-        <el-button @click="getDirectoryMethod">返回根目录</el-button>
-        <el-button @click="returnFrontDirectory">返回上一级目录</el-button>
+        <el-button class="default-button" @click="getDirectoryMethod">返回根目录</el-button>
+        <el-button class="default-button" @click="returnFrontDirectory">返回上一级目录</el-button>
       </div>
       <div>
         <el-table
-            stripe
             :data="directoryData"
-            style="width: 100%"
             @row-dblclick="handleCellDoubleClick"
-            max-height="300"
+            max-height="400"
         >
           <el-table-column fixed label="" width="50" align="center">
             <template #default="scope">
@@ -68,7 +50,7 @@
           <el-table-column
               label="文件ID"
               prop="uid"
-              width="80"
+              width="200"
               align="center"
           ></el-table-column>
           <el-table-column
@@ -80,7 +62,7 @@
           <el-table-column
               label="所属代理"
               prop="agentId"
-              width="80"
+              width="200"
               align="center"
           ></el-table-column>
 
@@ -113,9 +95,8 @@
           >
             <template v-slot="scope">
               <el-button
-                  v-if="scope.row.type === 'file' && scope.row.fileType === 'mpc'"
-                  link
-                  type="primary"
+                  class="small-default-button"
+                  v-if="scope.row.type === 'file' && scope.row.fileType?.includes('mpc')"
                   @click="
                     chooseFileMethod(
                       scope.row.agentId,
@@ -124,14 +105,15 @@
                       0
                     )
                   "
-                  size="small"
               >
-                选择第一方文件
+                <el-icon><Connection /></el-icon> 选择第一方文件
               </el-button>
               <el-button
-                  v-if="scope.row.type === 'file' && scope.row.fileType === 'mpc'"
-                  link
-                  type="primary"
+                  :class="[
+                    'small-default-button',
+                    { 'small-default-button-disabled': partyNumber === 2 }
+                  ]"
+                  v-if="scope.row.type === 'file' && scope.row.fileType?.includes('mpc')"
                   :disabled="partyNumber === 2"
                   @click="
                     chooseFileMethod(
@@ -141,9 +123,8 @@
                       1
                     )
                   "
-                  size="small"
               >
-                选择第二方文件
+                <el-icon><Connection /></el-icon> 选择第二方文件
               </el-button>
             </template>
           </el-table-column>
@@ -153,26 +134,10 @@
   </el-container>
 
   <el-container>
-    <el-header style="height: 50px">
-      <div
-          style="
-            background-color: antiquewhite;
-            height: 40px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          "
-      >
-        <p
-            style="
-              font-size: 20px;
-              color: black;
-              opacity: 100%;
-              text-align: center;
-            "
-        >
-          上传输入数据
-        </p>
+    <el-header class="custom-header">
+      <div class="icon-text">
+        <el-icon><Tickets /></el-icon>
+        <span>上传输入数据</span>
       </div>
     </el-header>
     <el-main>
@@ -205,14 +170,14 @@
           style="margin-top: 20px; margin-bottom: 20px;"
       >
         <template #trigger>
-          <el-button type="primary" style="margin-right: 10px;">上传输入文件</el-button>
+          <el-button class="default-button" style="margin-right: 10px;">上传输入文件</el-button>
         </template>
-        <el-button class="ml-3" type="success" @click="submitUpload" style="margin-right: 10px;">
+        <el-button class="start-button" @click="submitUpload">
           创建MPC任务
         </el-button>
         <template #tip>
           <div class="el-upload__tip text-red">
-            limit 1 file, new file will cover the old file
+            限制1个文件，新文件将覆盖旧文件
           </div>
         </template>
       </el-upload>
@@ -264,9 +229,9 @@
     <span>{{ psiSuccessMessage }}</span>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="psiSuccessVisible = false" style="margin-right: 10px;">返回</el-button>
+        <el-button class="close-button" @click="psiSuccessVisible = false" style="margin-right: 10px;">返回</el-button>
         <router-link to="/result/mPc">
-          <el-button type="primary">
+          <el-button class="default-button">
             查看结果管理区
           </el-button>
         </router-link>
@@ -277,7 +242,7 @@
     <span>{{ psiFailedMessage }}</span>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="psiFailedVisible = false">返回</el-button>
+        <el-button class="close-button" @click="psiFailedVisible = false">返回</el-button>
       </div>
     </template>
   </el-dialog>
@@ -291,10 +256,11 @@ import { createPsiTask } from '../../api/pSi.js'
 import {genFileId, UploadInstance, UploadProps, UploadRawFile} from 'element-plus'
 //导入axios
 import axios from 'axios'
+import {Connection, Tickets} from "@element-plus/icons-vue";
 
 onMounted(() => {
   getAgentMethod()
-  getDirectoryMethod()
+  // getDirectoryMethod()
 })
 
 const psiSuccessVisible = ref(false)
@@ -330,34 +296,6 @@ const getDirectoryBody = ref({
 const folderRoute = ref([])
 const fileName = ref('')
 const secondFileName = ref('')
-// const createPsiTaskBody = ref({
-//   partInfo: [
-//     {
-//       agentID: "", //需要填写
-//       part: 1, //默认
-//       fileID: "", //需要填写
-//     },
-//     {
-//       agentID: "", //需要填写
-//       part: 2, //默认
-//       fileID: "", //需要填写
-//     }
-//   ],
-//   applicationId: "DAVEX-C1-A1", //后台配置
-//   centerId: "DAVEX-C1", //后台配置
-//   compileParameters: {},
-//   host: '10.176.34.171', //后台配置
-//   mpcId: 'PSI_GARNET', //后台配置
-//   n: 2, //目前只需要2方
-//   part: 0, //发起方默认为第0方
-//   port: 6000, //后台配置 无需用户在前端选择端口
-//   runtimeParameters: {
-//     PK: '', //需要手动输入，可能可以采用读取的方式
-//     protocol: 'semi2k-party', //目前只支持一个协议 但是后续可能会有多个协议
-//   },
-//   status: 'INIT', //默认INIT
-//   taskType: 'GARNET_PSI', //后台配置
-// })
 const createPsiTaskBody = ref({
   partInfo: [
     {
@@ -365,23 +303,30 @@ const createPsiTaskBody = ref({
       part: 1, //默认
       fileID: "", //需要填写
     },
-    {
-      agentID: "", //需要填写
-      part: 2, //默认
-      fileID: "", //需要填写
-    }
+    // {
+    //   agentID: "", //需要填写
+    //   part: 2, //默认
+    //   fileID: "", //需要填写
+    // }
   ],
-  applicationId: "DAVEX-C1-AXX1", //后台配置
+  applicationId: "DAVEX-C1-A1", //后台配置
   centerId: "DAVEX-C1", //后台配置
-  compileParameters: {},
+  compileParameters: {
+    "party_number": 2,
+    "feature_number": 5,
+    "ents.tree_h": 4,
+    "ents.n_threads": 4,
+    "sample_number_from_party_0":50,
+    "sample_number_from_party_1":49
+  },
   host: '10.176.37.50', //后台配置
-  mpcId: 'correction-supervision', //后台配置
-  mpcName: "xxx",
+  mpcId: 'decision-tree', //后台配置
+  mpcName: "决策树训练",
   n: 2, //目前只需要2方
   part: 0, //发起方默认为第0方
   port: 6000, //后台配置 无需用户在前端选择端口
   runtimeParameters: {
-    protocol: 'replicated-ring-party', //目前只支持一个协议 但是后续可能会有多个协议
+    protocol: 'semi2k-with-conversion-party', //目前只支持一个协议 但是后续可能会有多个协议
   },
   status: 'INIT', //默认INIT
   taskType: 'GARNET_MPC', //后台配置
@@ -393,43 +338,13 @@ const createBody = ref({
   mpcTask: createPsiTaskBody.value
 })
 
-// let photoRef = ref()
-
-// function upload(params) {
-//   let formData = new FormData()
-//   formData.append('file', params.file)
-//   // 使用 Blob 指定 mpcTask 的 MIME 类型为 application/json
-//   const mpcTaskJson = JSON.stringify(createPsiTaskBody.value)
-//   const mpcTaskBlob = new Blob([mpcTaskJson], { type: 'application/json' })
-//   formData.append('mpcTask', mpcTaskBlob) // 添加 mpcTask，指定类型
-//   axios({
-//     url: 'http://10.176.34.171:9999/MpcTasks/create_with_input',
-//     method: 'post',
-//     data: formData,
-//     headers: {
-//       'Content-Type': 'multipart/form-data', // 使用 multipart/form-data
-//       Accept: '*/*', // 接受所有响应类型
-//     },
-//   }).then((resp) => {
-//     console.log('success')
-//   })
-// }
-// function submitUpload() {
-//   photoRef.value.submit()
-//   infoDialogText.value = '创建PSI任务成功'
-//   infoDialogVisible.value = true
-// }
-// // 信息提示框
-// const infoDialogVisible = ref(false)
-// const infoDialogText = ref('')
-
 const createMethod = async () => {
   try {
     console.log(createBody.value)
     const res = await createPsiTask(createBody.value)
     console.log(res.data)
     if (res.data.body.code == 1) {
-      psiSuccessMessage.value = `MPC任务创建完成`
+      psiSuccessMessage.value = `MPC任务创建完成，执行完成后将通过消息中心提示`
       psiSuccessVisible.value = true
     }
     else {
@@ -563,6 +478,31 @@ const handleSelectAgent = async (value) => {
 const handleSelectPartyNumber = async (value) => {
   partyNumber.value = value
   createPsiTaskBody.value.n = partyNumber.value
+  // 根据选择的参与方数量动态生成 partInfo
+  createPsiTaskBody.value.partInfo = Array.from({ length: partyNumber.value - 1 }, (_, index) => ({
+    agentID: "",
+    part: index + 1,
+    fileID: ""
+  }));
+  if (value == 3) {
+    createPsiTaskBody.value.compileParameters = {}
+    createPsiTaskBody.value.mpcId = 'correction-supervision'
+    createPsiTaskBody.value.mpcName = '社区监督'
+    createPsiTaskBody.value.runtimeParameters = { protocol: 'replicated-ring-party' }
+  }
+  if (value == 2) {
+    createPsiTaskBody.value.compileParameters = {
+      "party_number": 2,
+      "feature_number": 5,
+      "ents.tree_h": 4,
+      "ents.n_threads": 4,
+      "sample_number_from_party_0":50,
+      "sample_number_from_party_1":49
+    }
+    createPsiTaskBody.value.mpcId = 'decision-tree'
+    createPsiTaskBody.value.mpcName = '决策树训练'
+    createPsiTaskBody.value.runtimeParameters = { protocol: 'semi2k-with-conversion-party' }
+  }
 }
 </script>
 

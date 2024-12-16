@@ -1,5 +1,6 @@
 package DavexCenter.module.task.controller;
 
+import java.io.IOException;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,23 +49,29 @@ public class MpcTaskOutputController {
     }
 
     @PostMapping("/query")
-    public Body<List<MpcTaskOutput>> queryMpc(@RequestParam("applicationId") Long applicationId) {
+    public Body<List<MpcTaskOutput>> queryMpc(@RequestParam("applicationId") String applicationId) {
 
         return mpcTaskOutputService.queryMpc(applicationId);
     }
 
     @PostMapping("/queryByIds")
-    public Body<List<MpcTaskOutput>> queryMpcByIds(@RequestParam("applicationId") Long applicationId,
+    public Body<List<MpcTaskOutput>> queryMpcByIds(@RequestParam("applicationId") String applicationId,
             @RequestParam("mpcOutputIds") List<Long> mpcOutputIds) {
 
         return mpcTaskOutputService.queryMpcByIds(applicationId, mpcOutputIds);
     }
 
     @PostMapping("/delete")
-    public Body<String> deleteMpc(@RequestParam("applicationId") Long applicationId,
+    public Body<String> deleteMpc(@RequestParam("applicationId") String applicationId,
             @RequestParam("mpcOutputId") Long mpcOutputId) {
 
         return mpcTaskOutputService.deleteMpc(applicationId, mpcOutputId);
     }
 
+    @PostMapping("/read")
+    public Body<String> readMpc(@RequestParam("applicationId") String applicationId,
+                                @RequestParam("mpcOutputId") Long mpcOutputId) throws IOException {
+
+        return mpcTaskOutputService.readMpc(applicationId, mpcOutputId);
+    }
 }

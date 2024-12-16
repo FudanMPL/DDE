@@ -5,6 +5,9 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.SecureRandom;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -12,15 +15,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import DavexBase.service.notification.NotificationService;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.http.codec.json.Jackson2JsonDecoder;
+import org.springframework.http.codec.json.Jackson2JsonEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +42,7 @@ import DavexCenter.common.CustomMultipartFile;
 import DavexBase.service.auth.CenterWebClientService;
 import DavexCenter.module.file.service.ComparisonFileService;
 import DavexCenter.module.file.service.FileService;
+import reactor.netty.http.client.HttpClient;
 
 @Service
 public class ComparisonService {
@@ -45,8 +56,14 @@ public class ComparisonService {
         @Autowired
         private ComparisonFileService comparisonFileService;
 
+        @Autowired
+        private NotificationService notificationService;
+
         @Value("${file.upload-base-dir}")
         private String uploadBaseDir;
+    @Qualifier("objectMapper")
+    @Autowired
+    private ObjectMapper objectMapper;
 
         public Body<DirectoryInfo> getDirectory(String applicationId, String agentId) throws Exception {
 
@@ -76,6 +93,21 @@ public class ComparisonService {
                                 }).block().getData();
 
                 return Body.success(tableHeader, "获取成功");
+        }
+
+        public Body<List<String>> getTXTExample(String agentId, String fileId, String folderId) throws Exception {
+
+                WebClient webclient = centerWebClientService.center2AgentWebClient(agentId);
+                List<String> firstLine = webclient.post()
+                        .uri(uriBuilder -> uriBuilder.path("/comparison/getTXTExample")
+                                .queryParam("fileId", fileId)
+                                .queryParam("folderId", folderId)
+                                .queryParam("agentId", agentId).build())
+                        .retrieve()
+                        .bodyToMono(new ParameterizedTypeReference<Body<List<String>>>() {
+                        }).block().getData();
+
+                return Body.success(firstLine, "获取成功");
         }
 
         public Body<List<Boolean>> compare(String applicationId, String agentId, String fileId, String folderId,
@@ -155,8 +187,17 @@ public class ComparisonService {
                 MultipartFile file = new CustomMultipartFile(jsonBytes, resultName);
 
                 // 调用 saveComparisonFile 方法
-                comparisonFileService.saveComparison(file, fileService.getSha256(file), applicationId, agentId, fileId, folderId, fileName,
-                        uploadBaseDir, Timestamp.valueOf(LocalDateTime.now().plusWeeks(1)));
+                Body<String> res = comparisonFileService.saveComparison(file, fileService.getSha256(file), applicationId, agentId, fileId, folderId, fileName,
+                        Timestamp.valueOf(LocalDateTime.now().plusWeeks(1)));
+                String content;
+                if (res.getCode() == 1) {
+                        content = String.format("比对任务完成\n代理: %s\n文件名: %s",
+                                agentId, fileName);
+                } else {
+                        content = String.format("比对任务失败\n代理: %s\n文件名: %s\n错误信息: %s",
+                                agentId, fileName, res.getMessage());
+                }
+                notificationService.setMessage(applicationId, "比对任务结束", content, null, res.getCode(), "comparison", true);
 
                 return Body.success(comparisonResults, "比对成功");
         }
@@ -188,29 +229,7 @@ public class ComparisonService {
                 return compare(applicationId, agentId, fileId, folderId, attributes, valuesList);
         }
 
-        public Body<List<Boolean>> compareFromTXT(String applicationId, String agentId, String fileId, String folderId, MultipartFile file) throws Exception {
-
-                // 解析 txt 文件
-                List<List<String>> valuesList = new ArrayList<>();
-
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
-                        String line;
-
-                        // 逐行读取
-                        while ((line = reader.readLine()) != null) {
-                                // 根据空格分割每行的内容
-                                String[] values = line.trim().split("\\s+");
-                                List<String> row = new ArrayList<>();
-
-                                // 将分割后的内容添加到 List 中
-                                for (String value : values) {
-                                        row.add(value);
-                                }
-                                valuesList.add(row);
-                        }
-                }
-
-                System.out.println(valuesList);
+        public Body<List<Boolean>> compareTXT(String applicationId, String agentId, String fileId, String folderId, List<List<String>> valuesList) throws Exception {
 
                 WebClient webclient = centerWebClientService.center2AgentWebClient(agentId);
                 List<String> dataHash = webclient.post()
@@ -277,8 +296,71 @@ public class ComparisonService {
 
                 // 调用 saveComparisonFile 方法
                 comparisonFileService.saveComparison(ResultFile, fileService.getSha256(ResultFile), applicationId, agentId, fileId, folderId, fileName,
-                        uploadBaseDir, Timestamp.valueOf(LocalDateTime.now().plusWeeks(1)));
+                        Timestamp.valueOf(LocalDateTime.now().plusWeeks(1)));
 
                 return Body.success(comparisonResults, "比对成功");
         }
+
+        public Body<List<Boolean>> compareFromTXT(String applicationId, String agentId, String fileId, String folderId, MultipartFile file) throws Exception {
+
+                // 解析 txt 文件
+                List<List<String>> valuesList = new ArrayList<>();
+
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+                        String line;
+
+                        // 逐行读取
+                        while ((line = reader.readLine()) != null) {
+                                // 根据空格分割每行的内容
+                                String[] values = line.trim().split("\\s+");
+                                List<String> row = new ArrayList<>();
+
+                                // 将分割后的内容添加到 List 中
+                                for (String value : values) {
+                                        row.add(value);
+                                }
+                                valuesList.add(row);
+                        }
+                }
+
+                return compareTXT(applicationId, agentId, fileId, folderId, valuesList);
+        }
+
+//        public static KeyPair generateKeyPair() throws Exception {
+//                KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
+//                keyPairGen.initialize(1024, new SecureRandom());
+//                return keyPairGen.generateKeyPair();
+//        }
+
+//        public String test() throws Exception {
+//                HttpClient httpClient = HttpClient.create();
+//
+//                ExchangeStrategies strategies = ExchangeStrategies
+//                        .builder()
+//                        .codecs(clientDefaultCodecsConfigurer -> {
+//                                clientDefaultCodecsConfigurer.defaultCodecs()
+//                                        .jackson2JsonEncoder(new Jackson2JsonEncoder(objectMapper,
+//                                                MediaType.APPLICATION_JSON));
+//                                clientDefaultCodecsConfigurer.defaultCodecs()
+//                                        .jackson2JsonDecoder(new Jackson2JsonDecoder(objectMapper,
+//                                                MediaType.APPLICATION_JSON));
+//
+//                        }).build();
+//
+//                WebClient webclient = WebClient.builder().clientConnector(new ReactorClientHttpConnector(httpClient))
+//                        .baseUrl("http://127.0.0.1:8080")
+//                        .exchangeStrategies(strategies)
+//                        .build();
+//                List<String> dataHash = webclient.post()
+//                        .uri(uriBuilder -> uriBuilder.path("/api/contract/verification/invoke/submit_request")
+//                                .queryParam("fileId", fileId)
+//                                .queryParam("folderId", folderId)
+//                                .queryParam("agentId", agentId).build())
+//                        .retrieve()
+//                        .bodyToMono(new ParameterizedTypeReference<Body<List<String>>>() {
+//                        }).block().getData();
+//
+//                String result = "1";
+//                return result;
+//        }
 }

@@ -200,6 +200,7 @@ public class GarnetService {
             mpcTaskMapper.updateById(mpcTask);
             logger.error(mpcTask.getUid() + ":编译失败");
             e.printStackTrace();
+            throw e;
         }
     }
 
@@ -217,7 +218,7 @@ public class GarnetService {
                 "-h", mpcTask.getHost(),
                 "-pn", mpcTask.getPort().toString(),
                 "-p", part.toString(),
-                "-u",
+//                "-u",
                 mpc_name));
         ProcessBuilder processBuilder = new ProcessBuilder(command).directory(garnet_directory);
         logger.info("运行命令：" + command.toString());
@@ -251,6 +252,7 @@ public class GarnetService {
             mpcTaskMapper.updateById(mpcTask);
             logger.error(mpcTask.getUid() + ":运行失败");
             e.printStackTrace();
+            throw e;
         }
     }
 
