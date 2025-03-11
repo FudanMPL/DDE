@@ -55,3 +55,8 @@ export const getRayStatus = () => {
     let res = request.get('/SecretFlowTask/getRayStatus');
     return res;
 }
+
+export const getFlList = () => {
+  let res = request.get('/SecretFlowTask/list')
+  return res
+}

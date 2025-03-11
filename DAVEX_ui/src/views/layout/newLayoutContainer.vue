@@ -51,6 +51,10 @@ import {
               <el-icon><Document /></el-icon>
               <span class="centered-text">MPC文件管理</span>
             </el-menu-item>
+            <el-menu-item index="/user/flFile">
+              <el-icon><Document /></el-icon>
+              <span class="centered-text">联邦学习文件管理</span>
+            </el-menu-item>
           </el-sub-menu>
           <el-sub-menu index="/datashare">
             <template #title>

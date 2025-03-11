@@ -3,12 +3,23 @@ package DavexCenter.module.task.controller;
 
 import DavexBase.common.Body;
 import DavexBase.common.My;
+import DavexBase.common.R;
+import DavexBase.entity.Fl;
 import DavexBase.entity.FlTask;
+import DavexBase.entity.Mpc;
+import DavexBase.mapper.FlMapper;
 import DavexCenter.module.task.service.SecretFlowService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -17,8 +28,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.List;
 
 @RestController
 @RequestMapping("/SecretFlowTask")
@@ -29,6 +39,9 @@ public class SecretFlowController {
 
     @Autowired
     private My my;
+    @Autowired
+    private FlMapper flMapper ;
+
 
     private static final Logger logger = LoggerFactory.getLogger(SecretFlowController.class);
 
@@ -166,6 +179,12 @@ public class SecretFlowController {
             e.printStackTrace();
             return Body.error(e.getMessage());
         }
+    }
+
+    @GetMapping("/list")
+    public R<List<Fl>> list() {
+        LambdaQueryWrapper<Fl> queryWrapper = Wrappers.<Fl>lambdaQuery();
+        return R.success(flMapper.selectList(queryWrapper), "查询成功");
     }
 
 

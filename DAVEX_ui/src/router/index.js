@@ -46,6 +46,10 @@ const router = createRouter({
           component: () => import('@/views/user/mpcFile.vue'),
         },
         {
+          path: 'user/flFile',
+          component: () => import('@/views/user/flFile.vue'),
+        },
+        {
           path: 'dve/testTrans',
           component: () => import('@/views/dve/testTrans.vue'),
         },

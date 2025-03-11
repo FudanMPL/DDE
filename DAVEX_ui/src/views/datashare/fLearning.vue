@@ -1,11 +1,18 @@
 <template>    
   <div>
-  <!-- <span style="display: block; margin-bottom: 8px;">选择代理</span> -->
   <!-- 创建一个button，点击代用创建ray节点的函数 -->
   <el-header style="height: 50px">
   <el-button class="default-button" @click="activeRayMethod">创建ray节点</el-button>
   <el-button class="default-button" @click="stopRayMethod">关闭ray节点</el-button>
   <el-button class="default-button" @click="getRayStatusMethod">查看节点状态</el-button>
+  <!-- <el-select v-model="partyNumber" placeholder="选择参与方数量" @change="handleSelectPartyNumber">
+      <el-option
+          v-for="item in partyNumbers"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+      />
+    </el-select> -->
   <el-select v-model="agentId" placeholder="选择代理" style="width: 240px;margin-left: 15px;margin-right: 15px" @change="handleSelectAgent">
         <el-option
             v-for="item in agents"
@@ -138,6 +145,73 @@
     </el-container>
 
     <el-container>
+    <el-header class="custom-header">
+      <div class="icon-text">
+        <el-icon><Tickets /></el-icon>
+        <span>选择联邦学习文件</span>
+      </div>
+    </el-header>
+    <el-main>
+      <div>
+        <el-table
+            :data="flList"
+            max-height="400"
+        >
+          <el-table-column fixed label="" width="50" align="center">
+            <template #default="scope">
+              <el-icon>
+                <template>
+                  <el-icon><Files /></el-icon>
+                </template>
+              </el-icon>
+            </template>
+          </el-table-column>
+          <el-table-column
+              label="联邦学习文件ID"
+              prop="uid"
+              width="200"
+              align="center"
+          ></el-table-column>
+          <el-table-column
+              label="名称"
+              prop="name"
+              width="180"
+              align="center"
+          ></el-table-column>
+          <el-table-column
+              fixed="right"
+              label="操作"
+              mid-width="300"
+              header-align="center"
+              align="center"
+          >
+            <template v-slot="scope">
+              <!-- <el-button
+                  class="small-default-button"
+                  @click="showParameters(scope.row, 'compile')"
+              >
+                <el-icon><Tickets /></el-icon> 查看编译参数
+              </el-button> -->
+              <el-button
+                  class="small-default-button"
+                  @click="showParameters(scope.row, 'runtime')"
+              >
+                <el-icon><Tickets /></el-icon> 查看运行参数
+              </el-button>
+              <el-button
+                  class="small-default-button"
+                  @click="chooseMpcMethod(scope.row)"
+              >
+                <el-icon><Tickets /></el-icon> 选择该联邦学习文件
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-main>
+  </el-container>
+
+    <el-container>
       <el-header class="custom-header">
         <div class="icon-text">
           <el-icon><Tickets /></el-icon>
@@ -163,8 +237,13 @@
             style="margin-top: 20px; margin-bottom: 20px;"
         >
           <template #trigger>
-            <el-button class="default-button" style="margin-right: 10px;">上传文件</el-button>
+            <el-button class="default-button" style="margin-right: 10px;">上传输入文件</el-button>
+            
           </template>
+          <el-button class="default-button" @click="editRuntimeDialog">
+          配置运行参数
+        </el-button>
+          
           <el-button class="start-button" @click="submitUpload">
             创建联邦学习任务
           </el-button>
@@ -176,6 +255,8 @@
         </el-upload>
       </el-main>
     </el-container>
+
+    
 
     <el-dialog v-model="createFLTaskVisible" :title="createFLTaskTitle" width="30%">
       <span>{{ createFLTaskMessage }}</span>
@@ -234,7 +315,7 @@
 </template>
 
 <script lang="ts" setup>
-import {activeRay,stopRay,getRayStatus,executeTask,joinRay} from '../../api/fLearning.js'
+import {activeRay,stopRay,getRayStatus,executeTask,joinRay,getFlList} from '../../api/fLearning.js'
 import {getAgent} from '../../api/testDve.js'
 import {getDirectory, getRootByAgent} from '../../api/folderController.js'
 import {onMounted, ref,reactive,computed} from "vue";
@@ -244,6 +325,7 @@ import {Connection} from "@element-plus/icons-vue";
 onMounted(() => {
     getAgentMethod()
     getDirectoryMethod()
+    getMpcListMethod()
   })
 
 
@@ -583,6 +665,34 @@ const rayStatusDialogVisible = ref(false)
 const rayStatusDialogTitle = ref('节点状态')
 
 //dialog管理区 和dialog管理有关的变量声明 以及操作在这个区域
+
+
+//fl任务管理区 和fl任务有关的变量声明 以及操作在这个区域 由flList引申而来
+const flList = ref([])
+const getMpcListMethod = async () => {
+  try {
+    const res = await getFlList()
+    flList.value = res.data.body.data
+    console.log(flList.value)
+  } catch (error) {
+    console.error('Failed to get mpc list:', error)
+  }
+}
+
+const editRuntimeDialog = () => {
+  const task = flList.value.find(
+      (t) => t.uid === createMpcTaskBody.value.mpcId,
+  )
+  if (task) {
+    currentRuntimeParameters.value = task.runtimeParameters.map((param) => ({
+      ...param,
+      // value: param.limit.defaultValue || '',
+      value: param.limit?.defaultValue ?? '',
+    }))
+  }
+  editRuntimeVisible.value = true
+}
+//
 
 
 </script>
