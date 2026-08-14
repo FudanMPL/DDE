@@ -23,13 +23,24 @@
         ></el-table-column>
         <!-- 列：编译参数名 -->
         <el-table-column
-            prop="name"
-            label="程序名称"
-            width="150"
-            align="center"
+          prop="name"
+          label="程序名称"
+          width="320"
+          align="center"
         ></el-table-column>
+        <!-- 本次修改：在 MPC 文件管理页面显示文件所属功能。 -->
+        <el-table-column
+          prop="taskType"
+          label="所属功能"
+          width="220"
+          align="center"
+        >
+          <template #default="{ row }">
+            {{ formatMpcTaskType(row.taskType) }}
+          </template>
+        </el-table-column>
         <!-- 操作列：删除按钮 -->
-        <el-table-column label="操作" mid-width="100" align="center">
+        <el-table-column label="操作" min-width="100" align="center">
           <template #default="scope">
             <el-button
                 class="small-default-button"
@@ -61,15 +72,34 @@
           style="max-width: 100%"
           class="styled-form"
       >
-        <el-form-item label="MPC文件名">
+        <el-form-item
+          class="mpc-basic-field"
+          label="MPC文件名"
+        >
           <el-input v-model="mpcTaskInfo.name" />
+        </el-form-item>
+        <!-- 上传时选择 MPC 文件所属的隐私计算功能。 -->
+        <el-form-item
+          class="mpc-basic-field"
+          label="所属功能"
+          required
+        >
+          <el-select
+            v-model="mpcTaskInfo.taskType"
+            placeholder="请选择所属功能"
+          >
+            <el-option label="安全多方计算" value="GARNET_MPC" />
+            <el-option label="隐私集合求交" value="GARNET_PSI" />
+            <el-option label="安全推理" value="GARNET_INFERENCE" />
+          </el-select>
         </el-form-item>
         <el-form-item>
           <el-button class="default-button" @click="addcompileRarameter">增加编译参数</el-button>
-
           <el-button class="default-button" @click="addruntimeRarameter">增加运行参数</el-button>
         </el-form-item>
-        <el-upload
+        <!-- 本次修改：选择文件和上传文件按钮在同一横向高度。 -->
+        <div class="mpc-upload-row">
+          <el-upload
             ref="upload"
             class="upload-demo"
             action="/"
@@ -77,20 +107,24 @@
             :on-exceed="handleExceed"
             :auto-upload="false"
             :on-change="handleFileChange"
-            style="margin-top: 20px; margin-bottom: 20px;"
-        >
-          <template #trigger>
-            <el-button class="default-button" style="margin-right: 10px;">选择MPC文件</el-button>
-          </template>
+          >
+            <template #trigger>
+              <el-button class="default-button">
+                选择MPC文件
+              </el-button>
+            </template>
+
+            <template #tip>
+              <div class="el-upload__tip text-red">
+                限制1个文件，新文件将覆盖当前选择
+              </div>
+            </template>
+          </el-upload>
+
           <el-button class="start-button" @click="submitUpload">
             上传MPC文件
           </el-button>
-          <template #tip>
-            <div class="el-upload__tip text-red">
-              限制1个文件，新文件将覆盖旧文件
-            </div>
-          </template>
-        </el-upload>
+        </div>
       </el-form>
     </div>
 
@@ -216,7 +250,7 @@
           </el-table-column>
 
           <!-- 操作列：删除按钮 -->
-          <el-table-column label="操作" mid-width="100" align="center">
+          <el-table-column label="操作" min-width="100" align="center">
             <template #default="scope">
               <el-button
                   type="danger"
@@ -352,7 +386,7 @@
           </el-table-column>
 
           <!-- 操作列：删除按钮 -->
-          <el-table-column label="操作" mid-width="100" align="center">
+          <el-table-column label="操作" min-width="100" align="center">
             <template #default="scope">
               <el-button
                   type="danger"
@@ -490,8 +524,8 @@ import { getMpcList, uploadMpc } from '../../api/mpC.js'
 import {genFileId, UploadInstance, UploadProps, UploadRawFile} from "element-plus";
 import { addOperationHistory } from '../../api/operationHistory.js'
 
+// 页面加载时只查询 MPC 列表，参数由用户按需添加。
 onMounted(() => {
-  addcompileRarameter()
   getMpcListMethod()
 })
 
@@ -499,6 +533,16 @@ const mpcSuccessVisible = ref(false)
 const mpcFailedVisible = ref(false)
 const mpcSuccessMessage = ref('')
 const mpcFailedMessage = ref('')
+
+const formatMpcTaskType = (value: string) => {
+  const taskTypeLabels: Record<string, string> = {
+    GARNET_MPC: '安全多方计算',
+    GARNET_PSI: '隐私集合求交',
+    GARNET_INFERENCE: '安全推理',
+  }
+
+  return taskTypeLabels[value] || '未分类'
+}
 
 const upload = ref<UploadInstance>()
 const handleExceed: UploadProps['onExceed'] = (files) => {
@@ -508,8 +552,21 @@ const handleExceed: UploadProps['onExceed'] = (files) => {
   upload.value!.handleStart(file)
 }
 
-const handleFileChange: UploadProps['onChange'] = (file, fileList) => {
+const handleFileChange: UploadProps['onChange'] = (file) => {
+  // 本次修改：不限制文件扩展名，只检查浏览器是否成功取得文件。
+  if (!file.raw) {
+    mpcFailedMessage.value = '无法读取所选文件'
+    mpcFailedVisible.value = true
+    uploadBody.value.file = null
+    return
+  }
+
   uploadBody.value.file = file.raw
+
+  // 用户未填写名称时，使用去掉最后一个扩展名的文件名。
+  if (!mpcTaskInfo.value.name.trim()) {
+    mpcTaskInfo.value.name = file.name.replace(/\.[^.]+$/, '')
+  }
 }
 
 const submitUpload = () => {
@@ -520,6 +577,7 @@ const submitUpload = () => {
 const mpcTaskInfo = ref({
   centerId: "DAVEX-C1",
   name: '',
+  taskType: '',
   compileParameters: [],
   runtimeParameters: [],
 })
@@ -529,23 +587,64 @@ const uploadBody = ref({
 })
 const uploadMethod = async () => {
   try {
-    console.log(uploadBody.value)
-    const res = await uploadMpc(uploadBody.value)
+     // 上传前检查必要字段，避免生成名称为空的数据库记录。
+    if (!uploadBody.value.file) {
+      mpcFailedMessage.value = '请先选择 MPC 文件'
+      mpcFailedVisible.value = true
+      return
+    }
+
+    const name = mpcTaskInfo.value.name.trim()
+    if (!name) {
+      mpcFailedMessage.value = 'MPC 文件名不能为空'
+      mpcFailedVisible.value = true
+      return
+    }
+
+    // 没有选择所属功能时，不向后端发送上传请求。
+    if (!mpcTaskInfo.value.taskType) {
+      mpcFailedMessage.value = '请选择MPC所属功能'
+      mpcFailedVisible.value = true
+      return
+    }
+    // 不发送页面中尚未配置类型的空参数，避免后端枚举解析失败。
+    const mpc = {
+      ...mpcTaskInfo.value,
+      name,
+      compileParameters: mpcTaskInfo.value.compileParameters.filter(
+        (parameter) => parameter.parameterType,
+      ),
+      runtimeParameters: mpcTaskInfo.value.runtimeParameters.filter(
+        (parameter) => parameter.parameterType,
+      ),
+    }
+    const res = await uploadMpc({
+      file: uploadBody.value.file,
+      mpc,
+    })
     console.log(res.data)
-    if (res.data.body.code == 1) {
-      mpcSuccessMessage.value = `MPC文件上传成功`
+   if (res.data.body.code === 1) {
+      mpcSuccessMessage.value = 'MPC文件上传成功'
       mpcSuccessVisible.value = true
-      getMpcListMethod()
-      // 记录操作历史
+
+      // 上传成功后清空文件名称、所属功能和文件列表。
+      mpcTaskInfo.value.name = ''
+      mpcTaskInfo.value.taskType = ''
+      uploadBody.value.file = null
+      upload.value?.clearFiles()
+
+      await getMpcListMethod()
+
       await addOperationHistory({
         operationType: '上传MPC文件',
-        operationObject: mpcTaskInfo.value.name,
+        operationObject: mpc.name,
         result: '成功',
-        remark: `上传MPC程序 ${mpcTaskInfo.value.name}`
+        remark: `上传MPC程序 ${mpc.name}`,
       })
     }
     else {
-      mpcFailedMessage.value = res.data.message
+      // 后端业务消息位于响应的 body 中。
+      mpcFailedMessage.value = res.data.body?.message || 'MPC 文件上传失败'
       mpcFailedVisible.value = true
       // 记录失败操作
       await addOperationHistory({
@@ -728,5 +827,24 @@ const infoDialogText = ref('')
   display: flex; /* 使用 Flexbox */
   flex-direction: column; /* 设置为纵向布局 */
   align-items: center; /* 居中对齐子元素 */
+}
+/* 本次修改：使文件名和所属功能两行在上传窗口中整体居中。 */
+.mpc-basic-field {
+  width: 440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 两个输入区域使用相同宽度。 */
+.mpc-basic-field :deep(.el-form-item__content) {
+  flex: none;
+  width: 300px;
+}
+
+/* 覆盖全局 el-select 宽度和下边距。 */
+.mpc-basic-field :deep(.el-input),
+.mpc-basic-field :deep(.el-select) {
+  width: 100%;
+  margin-bottom: 0;
 }
 </style>

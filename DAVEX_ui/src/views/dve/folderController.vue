@@ -20,10 +20,12 @@
         <el-button class="default-button" @click="getDirectoryMethod">返回根目录</el-button>
         <el-button  class="default-button" @click="returnFrontDirectory">返回上一级目录</el-button>
         <el-popover
+          v-model:visible="createFolderPopoverVisible"
           placement="top-start"
           title="此处输入新文件夹名"
           :width="400"
           trigger="click"
+          @show="resetCreateFolderForm"
         >
           <template #reference>
             <el-button class="default-button" v-if="centerId === agentId">在当前目录下新建文件夹</el-button>
@@ -38,9 +40,10 @@
             </el-form-item>
             <el-button
               class="default-button"
-              @click="createFolderMethod"
-              calss="el-button mt-4"
               style="width: 100%"
+              :loading="creatingFolder"
+              :disabled="creatingFolder"
+              @click="createFolderMethod"
             >
               新建文件夹
             </el-button>
@@ -141,7 +144,7 @@
           <el-table-column
             fixed="right"
             label="操作"
-            mid-width="300"
+            width="190"
             header-align="center"
             align="center"
           >
@@ -257,7 +260,7 @@
 <!--          <el-table-column-->
 <!--            label="拥有权限"-->
 <!--            prop="allowedMethod"-->
-<!--            mid-width="180"-->
+<!--            min-width="180"-->
 <!--            align="center"-->
 <!--          ></el-table-column>-->
 <!--        </el-table>-->
@@ -532,7 +535,7 @@
 <!--        <el-table-column-->
 <!--          label="更新时间"-->
 <!--          prop="lastUpdate"-->
-<!--          mid-width="380"-->
+<!--          min-width="380"-->
 <!--          :formatter="formatDate"-->
 <!--          align="center"-->
 <!--        ></el-table-column>-->
@@ -666,6 +669,14 @@ const createFolderBody = ref({
   agentId: '',
   parentId: '',
 })
+
+const createFolderPopoverVisible = ref(false)
+const creatingFolder = ref(false)
+
+// 每次打开创建窗口时清除上一次输入。
+const resetCreateFolderForm = () => {
+  createFolderBody.value.name = ''
+}
 
 const folderRenameBody = ref({
   agentId: '5',

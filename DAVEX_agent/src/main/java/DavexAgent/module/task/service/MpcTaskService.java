@@ -7,31 +7,32 @@ import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-import DavexBase.common.Body;
 import DavexBase.entity.File;
-import DavexBase.service.notification.NotificationService;
+import DavexBase.entity.Mpc;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.BodyInserters;
 
 import DavexBase.common.My;
-import DavexBase.common.R;
 import DavexBase.common.Utils;
 import DavexBase.entity.MpcTask;
 import DavexBase.entity.MpcTaskAgent;
 import DavexBase.entity.MpcTaskOutput;
-import DavexBase.info.UploadAgentTaskInfo;
 import DavexBase.mapper.FileMapper;
 import DavexBase.mapper.MpcMapper;
 import DavexBase.mapper.MpcTaskAgentMapper;
 import DavexBase.mapper.MpcTaskMapper;
-import DavexBase.service.auth.AgentWebClientService;
 import DavexBase.service.directory.FileFolderService;
 import DavexBase.service.programs.GarnetService;
+import DavexBase.task.command.MpcTaskCommand;
+import DavexBase.task.command.ParticipantInput;
+import DavexBase.compute.garnet.GarnetComputeAdapter;
+
+import DavexAgent.module.task.assembler.MpcTaskCommandAssembler;
+import DavexAgent.module.task.port.CenterMpcResultClient;
+import DavexAgent.module.task.port.CenterTaskNotificationClient;
 
 @Service
 public class MpcTaskService {
@@ -48,8 +49,11 @@ public class MpcTaskService {
     @Autowired
     GarnetService garnetService;
 
+    /**
+     * 统一管理Garnet编译、运行、状态和取消。
+     */
     @Autowired
-    AgentWebClientService agentWebClientService;
+    private GarnetComputeAdapter garnetComputeAdapter;
 
     @Autowired
     MpcMapper mpcMapper;
@@ -64,57 +68,72 @@ public class MpcTaskService {
     FileFolderService fileFolderService;
 
     @Autowired
-    NotificationService notificationService;
+    private CenterTaskNotificationClient notificationClient;
+
+    @Autowired
+    private CenterMpcResultClient resultClient;
 
     // TODO 检查File权限
-    public void createMpcTask(UploadAgentTaskInfo mpctTaskInfo) throws Exception {
+    public void createMpcTask(MpcTaskCommand command) throws Exception {
 
-        if (mpctTaskInfo.getUid() != null && mpcTaskMapper.selectById(mpctTaskInfo.getUid()) != null) {
+        if (command.uid() != null
+                && mpcTaskMapper.selectById(command.uid()) != null) {
             throw new Exception("任务已存在");
         }
-        for (UploadAgentTaskInfo.PartInfo partInfo : mpctTaskInfo.getPartInfo()) {
+
+        for (ParticipantInput participant : command.participants()) {
             MpcTaskAgent mpcTaskAgent = new MpcTaskAgent();
-            mpcTaskAgent.setAgentId(partInfo.getAgentID());
-            mpcTaskAgent.setPart(partInfo.getPart());
-            mpcTaskAgent.setMpcTaskId(mpctTaskInfo.getUid());
-            mpcTaskAgent.setCenterId(mpctTaskInfo.getCenterId());
+            mpcTaskAgent.setAgentId(participant.agentId());
+            mpcTaskAgent.setPart(participant.part());
+            mpcTaskAgent.setMpcTaskId(command.uid());
+            mpcTaskAgent.setCenterId(command.centerId());
             mpcTaskAgentMapper.insert(mpcTaskAgent);
         }
-        if (mpcMapper.selectById(mpctTaskInfo.getMpcId()) == null) {
-            mpcService.downloadMPC(mpctTaskInfo.getCenterId(), mpctTaskInfo.getMpcId());
-        }
-        mpcTaskMapper.insert(mpctTaskInfo);
 
-        switch (mpctTaskInfo.getTaskType()) {
+        // 元数据不存在或本地程序文件丢失时，重新从 Center 下载 MPC 程序。
+        Mpc localMpc = mpcMapper.selectById(command.mpcId());
+        if (localMpc == null
+                || localMpc.getPath() == null
+                || !Files.isRegularFile(
+                        Paths.get(my.getBase_path())
+                                .resolve(localMpc.getPath())
+                                .normalize())) {
+            mpcService.downloadMPC(command.centerId(), command.mpcId());
+        }
+        MpcTask mpcTask = MpcTaskCommandAssembler.toEntity(command);
+        mpcTaskMapper.insert(mpcTask);
+
+        switch (command.taskType()) {
             case GARNET_MPC:
             default:
-                preprocess(mpctTaskInfo);
+                preprocess(mpcTask);
                 break;
             case GARNET_PSI:
-                psiPreprocess(mpctTaskInfo);
+                psiPreprocess(mpcTask);
                 break;
         }
     }
 
+    /**
+     * 编译 MPC 程序并准备当前 Agent 的任务输入文件。
+     *
+     * 编译失败时向 Center 发送失败通知，然后继续抛出原异常，
+     * 由上层业务入口按原有错误语义处理。
+     *
+     * @param mpcTask 已完成持久化装配的 MPC 任务实体
+     */
     @Async("customExecutor")
-    public void preprocess(UploadAgentTaskInfo mpcTask) throws Exception {
+    public void preprocess(MpcTask mpcTask) throws Exception {
         try {
-            garnetService.compile(mpcTask);
+            garnetComputeAdapter.compile(mpcTask);
         } catch (Exception e) {
             // 编译失败的通知
             String errorContent = String.format("MPC任务编译失败\n任务ID: %s\n任务类型: %s\n错误信息: %s",
                     mpcTask.getUid(), mpcTask.getTaskType(), e.getMessage());
-            agentWebClientService.agent2CenterWebClient(mpcTask.getCenterId()).post()
-                    .uri(uriBuilder -> uriBuilder.path("/notification/set")
-                            .queryParam("appID", mpcTask.getApplicationId())
-                            .queryParam("title", "MPC任务编译失败")
-                            .queryParam("content", errorContent)
-                            .queryParam("taskID", mpcTask.getUid())
-                            .queryParam("code", 0)
-                            .queryParam("type", "mpc").build())
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<String>() {
-                    }).block();
+            // 通过通信端口向任务所属 Center 回传 MPC 编译失败状态。
+            notificationClient.sendNotification(
+                    mpcTask.getCenterId(), mpcTask.getApplicationId(),
+                    "MPC任务编译失败", errorContent, mpcTask.getUid(), 0, "mpc");
             throw e;
         }
         garnetService.link(fileFolderService.getFilePath(fileMapper.selectById(mpcTask.getDataId()), my.getBase_path()),
@@ -123,24 +142,17 @@ public class MpcTaskService {
     }
 
     @Async("customExecutor")
-    private void psiPreprocess(UploadAgentTaskInfo mpcTask) throws Exception {
+    private void psiPreprocess(MpcTask mpcTask) throws Exception {
         try {
-            garnetService.compile(mpcTask);
+            garnetComputeAdapter.compile(mpcTask);
         } catch (Exception e) {
             // 编译失败的通知
             String errorContent = String.format("PSI任务编译失败\n任务ID: %s\n任务类型: %s\n错误信息: %s",
                     mpcTask.getUid(), mpcTask.getTaskType(), e.getMessage());
-            agentWebClientService.agent2CenterWebClient(mpcTask.getCenterId()).post()
-                    .uri(uriBuilder -> uriBuilder.path("/notification/set")
-                            .queryParam("appID", mpcTask.getApplicationId())
-                            .queryParam("title", "PSI任务编译失败")
-                            .queryParam("content", errorContent)
-                            .queryParam("taskID", mpcTask.getUid())
-                            .queryParam("code", 0)
-                            .queryParam("type", "psi").build())
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<String>() {
-                    }).block();
+            // 通过通信端口向任务所属 Center 回传 PSI 编译失败状态。
+            notificationClient.sendNotification(
+                    mpcTask.getCenterId(), mpcTask.getApplicationId(),
+                    "PSI任务编译失败", errorContent, mpcTask.getUid(), 0, "psi");
             throw e;
         }
         garnetService.csvExtract(
@@ -151,58 +163,32 @@ public class MpcTaskService {
     @Async("customExecutor")
     public void run(MpcTask mpcTask) throws Exception {
         try {
-            garnetService.run(mpcTask);
+            garnetComputeAdapter.run(mpcTask);
         } catch (Exception e) {
             // 运行失败的通知
             String errorContent = String.format("MPC任务运行失败\n任务ID: %s\n任务类型: %s\n错误信息: %s",
                     mpcTask.getUid(), mpcTask.getTaskType(), e.getMessage());
-            agentWebClientService.agent2CenterWebClient(mpcTask.getCenterId()).post()
-                    .uri(uriBuilder -> uriBuilder.path("/notification/set")
-                            .queryParam("appID", mpcTask.getApplicationId())
-                            .queryParam("title", "MPC任务运行失败")
-                            .queryParam("content", errorContent)
-                            .queryParam("taskID", mpcTask.getUid())
-                            .queryParam("code", 0)
-                            .queryParam("type", "mpc").build())
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<String>() {
-                    }).block();
+            // 通过通信端口向任务所属 Center 回传 MPC 运行失败状态。
+            notificationClient.sendNotification(
+                    mpcTask.getCenterId(), mpcTask.getApplicationId(),
+                    "MPC任务运行失败", errorContent, mpcTask.getUid(), 0, "mpc");
             throw e;
         }
-        // * 通常来说，MPC任务结果不需要返回。
-        // String outputPath = my.getGarnet_path() + "/Output/" + mpcTask.getUid() +
-        // "-P" + mpcTask.getPart() + "-0";
-        // FileSystemResource fileResource = new FileSystemResource(outputPath);
-        // MpcTaskOutput mpcTaskOutput = new MpcTaskOutput();
-        // mpcTaskOutput.setTaskId(mpcTask.getUid());
-        // mpcTaskOutput.setHash(Utils.getFileHash(fileResource, "SHA-256"));
-        // agentWebClientService.agent2CenterWebClient(mpcTask.getCenterId()).post().uri("/MpcTasks/save")
-        // .contentType(MediaType.MULTIPART_FORM_DATA).body(BodyInserters.fromMultipartData("file",
-        // fileResource)
-        // .with("metadata", mpcTaskOutput))
-        // .retrieve().bodyToMono(new ParameterizedTypeReference<R<String>>() {
-        // }).block();
+        // 普通 MPC 的结果保留在各参与节点，不需要上传到 Center。
     }
 
     @Async("customExecutor")
     public void psiRun(MpcTask mpcTask) throws Exception {
         try {
-            garnetService.run(mpcTask);
+            garnetComputeAdapter.run(mpcTask);
         } catch (Exception e) {
             // 任务执行失败的通知
             String errorContent = String.format("PSI任务运行失败\n任务ID: %s\n任务类型: %s\n错误信息: %s",
                     mpcTask.getUid(), mpcTask.getTaskType(), e.getMessage());
-            agentWebClientService.agent2CenterWebClient(mpcTask.getCenterId()).post()
-                    .uri(uriBuilder -> uriBuilder.path("/notification/set")
-                            .queryParam("appID", mpcTask.getApplicationId())
-                            .queryParam("title", "PSI任务运行失败")
-                            .queryParam("content", errorContent)
-                            .queryParam("taskID", mpcTask.getUid())
-                            .queryParam("code", 0)
-                            .queryParam("type", "psi").build())
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<String>() {
-                    }).block();
+            // 通过通信端口向任务所属 Center 回传 PSI 运行失败状态。
+            notificationClient.sendNotification(
+                    mpcTask.getCenterId(), mpcTask.getApplicationId(),
+                    "PSI任务运行失败", errorContent, mpcTask.getUid(), 0, "psi");
             throw e;
         }
         try {
@@ -219,30 +205,18 @@ public class MpcTaskService {
             mpcTaskOutput.setApplicationId(mpcTask.getApplicationId());
             mpcTaskOutput.setUploadDate(Timestamp.valueOf(LocalDateTime.now()));
             mpcTaskOutput.setName(mpcTask.getUid() + ".csv");
-            R<String> res = agentWebClientService.agent2CenterWebClient(mpcTask.getCenterId()).post()
-                    .uri("/MpcTasksOutput/save")
-                    .contentType(MediaType.MULTIPART_FORM_DATA).body(BodyInserters.fromMultipartData("file", fileResource)
-                            .with("metadata", mpcTaskOutput))
-                    .retrieve().bodyToMono(new ParameterizedTypeReference<R<String>>() {
-                    }).block();
-            System.out.println(res);
+            // Multipart 构造和响应解析由结果通信适配器负责。
+            resultClient.uploadPsiResult(mpcTask.getCenterId(), filePath, mpcTaskOutput);
 
             // 成功保存结果的消息通知
             String content = String.format("PSI任务结果保存成功\n任务ID: %s\n任务类型: %s\n运行结果: %s",
                     mpcTask.getUid(), mpcTask.getTaskType(), mpcTask.getStatus());
             Integer code = 1;
 
-            agentWebClientService.agent2CenterWebClient(mpcTask.getCenterId()).post()
-                    .uri(uriBuilder -> uriBuilder.path("/notification/set")
-                            .queryParam("appID", mpcTask.getApplicationId())
-                            .queryParam("title", "PSI任务运行结束")
-                            .queryParam("content", content)
-                            .queryParam("taskID", mpcTask.getUid())
-                            .queryParam("code", code)
-                            .queryParam("type", "psi").build())
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<String>() {
-                    }).block();
+            // 通过通信端口回传 PSI 结果保存成功状态。
+            notificationClient.sendNotification(
+                    mpcTask.getCenterId(), mpcTask.getApplicationId(),
+                    "PSI任务运行结束", content, mpcTask.getUid(), code, "psi");
         } catch (Exception e) {
             e.printStackTrace();
 
@@ -251,17 +225,10 @@ public class MpcTaskService {
                     mpcTask.getUid(), mpcTask.getTaskType(), e.getMessage());
             Integer code = 0;
 
-            agentWebClientService.agent2CenterWebClient(mpcTask.getCenterId()).post()
-                    .uri(uriBuilder -> uriBuilder.path("/notification/set")
-                            .queryParam("appID", mpcTask.getApplicationId())
-                            .queryParam("title", "PSI任务运行结束")
-                            .queryParam("content", content)
-                            .queryParam("taskID", mpcTask.getUid())
-                            .queryParam("code", code)
-                            .queryParam("type", "psi").build())
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<String>() {
-                    }).block();
+            // 通过通信端口回传 PSI 结果保存失败状态。
+            notificationClient.sendNotification(
+                    mpcTask.getCenterId(), mpcTask.getApplicationId(),
+                    "PSI任务运行结束", content, mpcTask.getUid(), code, "psi");
         }
     }
 

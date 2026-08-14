@@ -132,7 +132,7 @@
           <el-table-column
             fixed="right"
             label="操作"
-            mid-width="300"
+            width="180"
             header-align="center"
             align="center"
           >
@@ -259,7 +259,7 @@
 <!--          <el-table-column-->
 <!--            label="拥有权限"-->
 <!--            prop="allowedMethod"-->
-<!--            mid-width="180"-->
+<!--            min-width="180"-->
 <!--            align="center"-->
 <!--          ></el-table-column>-->
 <!--        </el-table>-->
@@ -555,7 +555,7 @@
 <!--        <el-table-column-->
 <!--          label="更新时间"-->
 <!--          prop="lastUpdate"-->
-<!--          mid-width="380"-->
+<!--          min-width="380"-->
 <!--          :formatter="formatDate"-->
 <!--          align="center"-->
 <!--        ></el-table-column>-->
@@ -588,7 +588,8 @@ import {
   getRoot
 } from '../../api/folderController.js'
 import { getGroup, getRuleByGroup, getApplication } from '../../api/testDve.js'
-import { genFileId } from 'element-plus'
+import { ElMessage, genFileId } from 'element-plus'
+import 'element-plus/theme-chalk/el-message.css'
 import type { UploadInstance, UploadProps, UploadRawFile } from 'element-plus'
 import { nextTick, onMounted } from 'vue'
 
@@ -874,18 +875,30 @@ const handleFileChange: UploadProps['onChange'] = (file, fileList) => {
 const submitUpload = async () => {
   uploadFileBody.value.agentId = agentId.value
   uploadFileBody.value.folderId = currentParentId.value
-  await uploadFileMethod()
-  findCurrentFolder()
+
+  // 只有上传成功后才刷新目录，失败时保留当前页面供用户处理。
+  const uploaded = await uploadFileMethod()
+  if (uploaded) {
+    await findCurrentFolder()
+  }
 }
 
 const uploadFileMethod = async () => {
   try {
-    console.log(uploadFileBody.value)
     const res = await uploadFile(uploadFileBody.value)
-    console.log(res.data)
-  }
-  catch (error) {
-    console.error('Failed to create MPC task:', error)
+
+    // 后端使用 code=1 表示成功，业务失败时展示具体原因。
+    if (res.data?.code !== 1) {
+      ElMessage.error(res.data?.message || '文件上传失败')
+      return false
+    }
+
+    ElMessage.success(res.data?.message || '文件上传成功')
+    return true
+  } catch (error) {
+    console.error('Failed to upload file:', error)
+    ElMessage.error('文件上传失败')
+    return false
   }
 }
 
@@ -921,20 +934,47 @@ const createFolderMethod = async () => {
 
 const deleteFolderMethod = async (uid, agentId, type, parentId) => {
   try {
-    //如果是文件夹
+    let res
+
     if (type === 'folder') {
-      deleteFolderBody.value.agentId = agentId
-      deleteFolderBody.value.folderId = uid
-      await deleteFolder(deleteFolderBody.value)
+      // 删除文件夹。
+      res = await deleteFolder({
+        agentId,
+        folderId: uid,
+      })
     } else {
-      deleteFileBody.value.agentId = agentId
-      deleteFileBody.value.fileId = uid
-      deleteFileBody.value.folderId = parentId
-      await deleteFile(deleteFileBody.value)
+      // 删除文件。
+      res = await deleteFile({
+        agentId,
+        fileId: uid,
+        folderId: parentId,
+      })
     }
-    findCurrentFolder()
+
+    // HTTP 请求成功不代表业务操作成功。
+    if (res.data.code === 0) {
+      ElMessage.error(
+        res.data.message ||
+        (type === 'folder' ? '文件夹删除失败' : '文件删除失败'),
+      )
+      return
+    }
+
+    ElMessage.success(
+      res.data.message ||
+      (type === 'folder' ? '文件夹删除成功' : '文件删除成功'),
+    )
+
+    // 只有删除成功才刷新目录。
+    await findCurrentFolder()
   } catch (error) {
-    console.error('Failed to delete folder:', error)
+    console.error('Failed to delete file or folder:', error)
+
+    ElMessage.error(
+      error?.response?.data?.message ||
+      error?.message ||
+      (type === 'folder' ? '文件夹删除失败' : '文件删除失败'),
+    )
   }
 }
 

@@ -1,35 +1,37 @@
 package DavexCenter.module.task.service;
 
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-import DavexBase.service.notification.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 
-import DavexBase.common.Body;
 import DavexBase.common.My;
-import DavexBase.common.R;
 import DavexBase.entity.MpcTask;
 import DavexBase.entity.MpcTaskAgent;
-import DavexBase.info.UploadAgentTaskInfo;
 import DavexBase.mapper.AgentMapper;
 import DavexBase.mapper.MpcTaskAgentMapper;
 import DavexBase.mapper.MpcTaskMapper;
-import DavexBase.service.auth.CenterWebClientService;
 import DavexBase.service.programs.GarnetService;
+import DavexBase.task.command.MpcTaskCommand;
+import DavexBase.task.command.ParticipantInput;
+import DavexBase.task.command.TaskOptions;
+import DavexBase.service.notification.NotificationService;
+import DavexBase.compute.garnet.GarnetComputeAdapter;
+
 import DavexCenter.entity.Input;
 import DavexCenter.mapper.InputMapper;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+import DavexCenter.module.task.assembler.AgentMpcTaskRequestProjector;
+import DavexCenter.module.task.assembler.MpcTaskCommandAssembler;
+import DavexCenter.module.task.port.AgentFileMetadataClient;
+import DavexCenter.module.task.port.AgentMpcTaskClient;
 
 @Service
 @ConditionalOnProperty(name = "garnet.enabled", havingValue = "true")
@@ -53,11 +55,20 @@ public class MpcTaskService {
     @Autowired
     private GarnetService garnetService;
 
+    /**
+     * 统一管理Garnet编译、运行、状态和取消。
+     */
+    @Autowired
+    private GarnetComputeAdapter garnetComputeAdapter;
+
     @Autowired
     private MpcTaskOutputService mpcTaskOutputService;
 
     @Autowired
-    private CenterWebClientService centerWebClientService;
+    private AgentMpcTaskClient agentMpcTaskClient;
+
+    @Autowired
+    private AgentFileMetadataClient agentFileMetadataClient;
 
     @Autowired
     private NotificationService notificationService;
@@ -86,52 +97,50 @@ public class MpcTaskService {
         return mpcTaskMapper.selectOne(queryWrapper);
     }
 
-    public UploadAgentTaskInfo create(UploadAgentTaskInfo mpcTaskInfo) throws Exception {
-        if (!my.getId().equals(mpcTaskInfo.getCenterId())) {
+    public MpcTask create(MpcTaskCommand command) throws Exception {
+        if (!my.getId().equals(command.centerId())) {
             throw new Exception("发送错误");
         }
 
-        for (UploadAgentTaskInfo.PartInfo partInfo : mpcTaskInfo.getPartInfo()) {
-            if (agentMapper.selectById(partInfo.getAgentID()) == null) {
+        for (ParticipantInput participant : command.participants()) {
+            if (agentMapper.selectById(participant.agentId()) == null) {
                 throw new Exception("Agent不存在");
             }
-            // TODO 检查app有权访问File
-            // if (fileMapper.selectById(entry.getValue().getRight()) == null) {
-            // throw new Exception("文件不存在");
-            // }
         }
-        mpcTaskInfo = parameterUpdate(mpcTaskInfo);
-        mpcTaskMapper.insert(mpcTaskInfo);
-        List<Mono<R<?>>> monos = new ArrayList<Mono<R<?>>>();
-        for (UploadAgentTaskInfo.PartInfo partInfo : mpcTaskInfo.getPartInfo()) {
+
+        command = parameterUpdate(command);
+
+        MpcTask mpcTask = MpcTaskCommandAssembler.toEntity(command);
+        mpcTaskMapper.insert(mpcTask);
+
+        // 数据库生成 UID 后同步回不可变命令，供参与方记录和 Agent 请求使用。
+        command = command.withUid(mpcTask.getUid());
+
+        for (ParticipantInput participant : command.participants()) {
             MpcTaskAgent mpcTaskAgent = new MpcTaskAgent();
-            mpcTaskAgent.setAgentId(partInfo.getAgentID());
-            mpcTaskAgent.setPart(partInfo.getPart());
-            mpcTaskAgent.setMpcTaskId(mpcTaskInfo.getUid());
-            mpcTaskAgent.setCenterId(mpcTaskInfo.getCenterId());
+            mpcTaskAgent.setAgentId(participant.agentId());
+            mpcTaskAgent.setPart(participant.part());
+            mpcTaskAgent.setMpcTaskId(command.uid());
+            mpcTaskAgent.setCenterId(command.centerId());
             mpcTaskAgentMapper.insert(mpcTaskAgent);
-            UploadAgentTaskInfo mpcTaskInfoCopy = new UploadAgentTaskInfo(mpcTaskInfo);
-            mpcTaskInfoCopy.maskFileID();
-            mpcTaskInfoCopy.setPart(partInfo.getPart());
-            mpcTaskInfoCopy.setDataId(partInfo.getFileID());
-            monos.add(centerWebClientService.center2AgentWebClient(partInfo.getAgentID()).post().uri("/MpcTasks/create")
-                    .bodyValue((UploadAgentTaskInfo) mpcTaskInfoCopy).retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<R<?>>() {
-                    }));
+
+            agentMpcTaskClient.createTask(participant.agentId(),
+                    AgentMpcTaskRequestProjector.toRequest(command, participant));
         }
-        Mono.when(monos).block();
-        return mpcTaskInfo;
+
+        return mpcTask;
     }
 
     @Async("customExecutor")
-    public void mpcRun(UploadAgentTaskInfo mpcTask) throws Exception {
+    public void mpcRun(MpcTask mpcTask) throws Exception {
         try {
-            garnetService.compile(mpcTask);
+            garnetComputeAdapter.compile(mpcTask);
         } catch (Exception e) {
             // 编译失败的通知
             String errorContent = String.format("MPC任务编译失败\n任务ID: %s\n任务类型: %s\n错误信息: %s",
                     mpcTask.getUid(), mpcTask.getTaskType(), e.getMessage());
-            notificationService.setMessage(mpcTask.getApplicationId(), "MPC任务编译失败", errorContent, mpcTask.getUid(), 0, "mpc");
+            notificationService.setMessage(mpcTask.getApplicationId(), "MPC任务编译失败", errorContent, mpcTask.getUid(), 0,
+                    "mpc");
             throw e;
         }
         garnetService.link(Paths.get(my.getBase_path())
@@ -146,26 +155,28 @@ public class MpcTaskService {
             throw new Exception("任务未就绪");
         }
         try {
-            garnetService.run(mpcTask);
+            garnetComputeAdapter.run(mpcTask);
         } catch (Exception e) {
             // 运行失败的通知
             String errorContent = String.format("MPC任务运行失败\n任务ID: %s\n任务类型: %s\n错误信息: %s",
                     mpcTask.getUid(), mpcTask.getTaskType(), e.getMessage());
-            notificationService.setMessage(mpcTask.getApplicationId(), "MPC任务运行失败", errorContent, mpcTask.getUid(), 0, "mpc");
+            notificationService.setMessage(mpcTask.getApplicationId(), "MPC任务运行失败", errorContent, mpcTask.getUid(), 0,
+                    "mpc");
             throw e;
         }
         mpcTaskOutputService.saveOutputFromInner(mpcTaskMapper.selectById(mpcTask.getUid()));
     }
 
     @Async("customExecutor")
-    public void psiRun(UploadAgentTaskInfo mpcTask) throws Exception {
+    public void psiRun(MpcTask mpcTask) throws Exception {
         try {
-            garnetService.compile(mpcTask);
+            garnetComputeAdapter.compile(mpcTask);
         } catch (Exception e) {
             // 编译失败的通知
             String errorContent = String.format("PSI任务编译失败\n任务ID: %s\n任务类型: %s\n错误信息: %s",
                     mpcTask.getUid(), mpcTask.getTaskType(), e.getMessage());
-            notificationService.setMessage(mpcTask.getApplicationId(), "PSI任务编译失败", errorContent, mpcTask.getUid(), 0, "psi");
+            notificationService.setMessage(mpcTask.getApplicationId(), "PSI任务编译失败", errorContent, mpcTask.getUid(), 0,
+                    "psi");
             throw e;
         }
         garnetService.idExtract(inputMapper.selectById(mpcTask.getDataId()).getPath(), mpcTask.getUid(),
@@ -177,12 +188,13 @@ public class MpcTaskService {
             throw new Exception("任务未就绪");
         }
         try {
-            garnetService.run(mpcTask);
+            garnetComputeAdapter.run(mpcTask);
         } catch (Exception e) {
             // 运行失败的通知
             String errorContent = String.format("PSI任务运行失败\n任务ID: %s\n任务类型: %s\n错误信息: %s",
                     mpcTask.getUid(), mpcTask.getTaskType(), e.getMessage());
-            notificationService.setMessage(mpcTask.getApplicationId(), "PSI任务运行失败", errorContent, mpcTask.getUid(), 0, "psi");
+            notificationService.setMessage(mpcTask.getApplicationId(), "PSI任务运行失败", errorContent, mpcTask.getUid(), 0,
+                    "psi");
             throw e;
         }
         // * 什么也不做，结果由Agent返回
@@ -210,26 +222,14 @@ public class MpcTaskService {
         LambdaQueryWrapper<MpcTaskAgent> queryWrapper = Wrappers.<MpcTaskAgent>lambdaQuery()
                 .eq(MpcTaskAgent::getMpcTaskId, mpcTaskId);
         List<MpcTaskAgent> agents = mpcTaskAgentMapper.selectList(queryWrapper);
-        List<R<Boolean>> responses = Flux.fromIterable(agents).flatMap((MpcTaskAgent a) -> {
-            try {
-                return centerWebClientService.center2AgentWebClient(a.getAgentId()).get()
-                        .uri(uriBuilder -> uriBuilder.path("/MpcTasks/ready").queryParam("mpcTaskId", mpcTaskId)
-                                .build())
-                        .retrieve().bodyToMono(new ParameterizedTypeReference<R<Boolean>>() {
-                        });
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-        }).collectList().block();
-        for (R<Boolean> response : responses) {
-            if (response.getBody().getCode() == 0) {
-                throw new Exception(response.getBody().getMessage());
-            }
-            if (!response.getBody().getData()) {
+        // 通过通信端口检查每个参与 Agent 的任务准备状态。
+        for (MpcTaskAgent agent : agents) {
+            if (!agentMpcTaskClient.isReady(
+                    agent.getAgentId(), mpcTaskId)) {
                 return false;
             }
         }
+
         return true;
     }
 
@@ -241,26 +241,14 @@ public class MpcTaskService {
         LambdaQueryWrapper<MpcTaskAgent> queryWrapper = Wrappers.<MpcTaskAgent>lambdaQuery()
                 .eq(MpcTaskAgent::getMpcTaskId, mpcTaskId);
         List<MpcTaskAgent> agents = mpcTaskAgentMapper.selectList(queryWrapper);
-        List<R<Boolean>> responses = Flux.fromIterable(agents).flatMap((MpcTaskAgent a) -> {
-            try {
-                return centerWebClientService.center2AgentWebClient(a.getAgentId()).get()
-                        .uri(uriBuilder -> uriBuilder.path("/MpcTasks/run").queryParam("mpcTaskId", mpcTaskId)
-                                .build())
-                        .retrieve().bodyToMono(new ParameterizedTypeReference<R<Boolean>>() {
-                        });
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-        }).collectList().block();
-        for (R<Boolean> response : responses) {
-            if (response.getBody().getCode() == 0) {
-                throw new Exception(response.getBody().getMessage());
-            }
-            if (!response.getBody().getData()) {
+
+        for (MpcTaskAgent agent : agents) {
+            if (!agentMpcTaskClient.runTask(
+                    agent.getAgentId(), mpcTaskId)) {
                 return false;
             }
         }
+
         return true;
     }
 
@@ -268,30 +256,42 @@ public class MpcTaskService {
         return mpcTaskMapper.selectList(null);
     }
 
-    public UploadAgentTaskInfo parameterUpdate(UploadAgentTaskInfo mpcTask) {
-        MpcTask.TaskType type = mpcTask.getTaskType();
-        if (type == MpcTask.TaskType.GARNET_PSI) {
-            JSONObject compileParameters = new JSONObject();
-            Long P0_data = garnetService.csvCount(inputMapper.selectById(mpcTask.getDataId()).getPath());
-            Long P1_data = null;
-            UploadAgentTaskInfo.PartInfo p1 = mpcTask.getPartInfo().get(0);
-            try {
-                P1_data = centerWebClientService.center2AgentWebClient(p1.getAgentID()).post()
-                        .uri(uriBuilder -> uriBuilder.path("/directory/fileFolder/getRowCount")
-                                .queryParam("agentId", p1.getAgentID())
-                                .queryParam("fileId", p1.getFileID())
-                                .build())
-                        .retrieve().bodyToMono(new ParameterizedTypeReference<Body<Long>>() {
-                        }).block().getData();
-            } catch (Exception e) {
-                e.printStackTrace();
-                return mpcTask;
-            }
-            compileParameters.put("P0_Data", P0_data);
-            // directory/fileFolder/getRowCoun得到的csv行数包含表头
-            compileParameters.put("P1_Data", P1_data - 1);
-            mpcTask.setCompileParameters(compileParameters);
+    public MpcTaskCommand parameterUpdate(MpcTaskCommand command) {
+
+        if (command.taskType() != MpcTaskCommand.TaskType.GARNET_PSI) {
+            return command;
         }
-        return mpcTask;
+
+        Map<String, Object> compileParameters = new LinkedHashMap<>();
+
+        Long p0Data = garnetService.csvCount(
+                inputMapper.selectById(command.dataId()).getPath());
+
+        ParticipantInput participant = command.participants().get(0);
+
+        try {
+            // 通过文件元数据端口查询 Agent 输入文件的行数。
+            Long p1Data = agentFileMetadataClient.getRowCount(
+                    participant.agentId(),
+                    participant.fileId());
+
+            compileParameters.put("P0_Data", p0Data);
+
+            // Agent 返回的 CSV 行数包含表头，因此实际数据行数减一。
+            compileParameters.put("P1_Data", p1Data - 1);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return command;
+        }
+
+        TaskOptions currentOptions = command.options();
+        Map<String, Object> runtimeParameters = currentOptions == null
+                ? null
+                : currentOptions.runtimeParameters();
+
+        return command.withOptions(
+                new TaskOptions(
+                        compileParameters,
+                        runtimeParameters));
     }
 }
