@@ -125,7 +125,8 @@ import {
               <span class="centered-text">隐私保护类案查询</span>
             </el-menu-item>
           </el-sub-menu>
-          <el-sub-menu index="/auth">
+          <!-- 认证管理暂不在导航栏展示，恢复时移除 v-if="false" 即可 -->
+          <el-sub-menu v-if="false" index="/auth">
             <template #title>
               <el-icon><UserFilled /></el-icon>
               <span class="centered-text">认证管理</span>
