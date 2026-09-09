@@ -234,17 +234,20 @@ public class FileService {
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Body.error(String.format("找不到该文件，结果id: %d", outputId)));
         }
-        // 判断文件是否过期
-        Timestamp expiredTime = queryOutput.getExpiredTime();
+        return fetchStoredFileByHttp(outputId, applicationId, queryOutput.getPath(), queryOutput.getName(),
+                queryOutput.getExpiredTime(), "common");
+    }
+
+    public ResponseEntity<?> fetchStoredFileByHttp(Long outputId, String applicationId, String storedPath,
+                                                    String fileName, Timestamp expiredTime, String type) {
         if (expiredTime != null && LocalDateTime.now().isAfter(expiredTime.toLocalDateTime())) {
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Body.error(String.format("该文件已过期，结果id: %d，文件名: %s，失效时间: %s", outputId,
-                            queryOutput.getName(), queryOutput.getExpiredTime())));
+                            fileName, expiredTime)));
         }
 
-        Path filePath = Paths.get(queryOutput.getPath());
-        String fileName = queryOutput.getName();
+        Path filePath = Paths.get(storedPath);
         try {
             Resource resource = new UrlResource(filePath.toUri());
             if (!resource.exists() || !resource.isReadable()) {
@@ -255,9 +258,9 @@ public class FileService {
 
             DownloadTask newDownloadTask = new DownloadTask();
             newDownloadTask.setApplicationId(applicationId);
-            newDownloadTask.setOutputId(queryOutput.getUid());
+            newDownloadTask.setOutputId(outputId);
             newDownloadTask.setDownloadTime(Timestamp.valueOf(LocalDateTime.now()));
-            newDownloadTask.setType("common");
+            newDownloadTask.setType(type);
             downloadTaskMapper.insert(newDownloadTask);
 
             String encodedFileName = URLEncoder.encode(fileName, "UTF-8").replace("+", "%20");

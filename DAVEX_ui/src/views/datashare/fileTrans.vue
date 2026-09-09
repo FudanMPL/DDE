@@ -104,7 +104,7 @@
           <el-table-column
               fixed="right"
               label="操作"
-              mid-width="300"
+              min-width="200"
               header-align="center"
               align="center"
           >
@@ -329,6 +329,37 @@ const getDownloadFileName = (contentDisposition, fallbackName) => {
   }
 }
 
+const decodeTextFile = async (fileBlob) => {
+  const fileBuffer = await fileBlob.arrayBuffer()
+  try {
+    return new TextDecoder('utf-8', {fatal: true}).decode(fileBuffer).replace(/^\uFEFF/, '')
+  }
+  catch (error) {
+    return new TextDecoder('gb18030').decode(fileBuffer).replace(/^\uFEFF/, '')
+  }
+}
+
+const previewTextFile = async () => {
+  const res = await fetchFileByHttp({
+    outputId: transferredOutputId.value,
+    applicationId,
+  })
+  const contentType = res.headers?.['content-type'] || ''
+  if (contentType.includes('application/json')) {
+    const responseText = await res.data.text()
+    let message = '文件预览失败，请稍后重试。'
+    try {
+      message = JSON.parse(responseText)?.message || message
+    }
+    catch (error) {
+      if (responseText) message = responseText
+    }
+    throw new Error(message)
+  }
+
+  return decodeTextFile(res.data)
+}
+
 const previewTransferredFile = async () => {
   if (previewLoading.value) return
 
@@ -341,15 +372,22 @@ const previewTransferredFile = async () => {
   previewLoading.value = true
   downloadErrorMessage.value = ''
   try {
-    const res = await readFile({
-      outputId: transferredOutputId.value,
-      applicationId,
-    })
-    if (res.data?.code !== 1) {
-      throw new Error(res.data?.message || '文件预览失败，请稍后重试。')
+    const fileName = transferredFile.value?.name || ''
+    const extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : ''
+    if (['txt', 'text', 'csv'].includes(extension)) {
+      previewContent.value = await previewTextFile()
+    }
+    else {
+      const res = await readFile({
+        outputId: transferredOutputId.value,
+        applicationId,
+      })
+      if (res.data?.code !== 1) {
+        throw new Error(res.data?.message || '文件预览失败，请稍后重试。')
+      }
+      previewContent.value = String(res.data?.data ?? '')
     }
 
-    previewContent.value = String(res.data?.data ?? '')
     previewVisible.value = true
   }
   catch (error) {
